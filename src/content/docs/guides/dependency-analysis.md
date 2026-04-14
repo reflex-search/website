@@ -116,7 +116,7 @@ Reflex classifies every dependency into one of three types:
 
 ## Supported languages
 
-Dependency extraction works across 12 languages. See [Supported Languages](/reference/supported-languages/) for the full matrix of what import syntax each language supports.
+Dependency extraction works across all 15 supported languages. See [Supported Languages](/reference/supported-languages/) for the full matrix of what import syntax each language supports.
 
 | Language | Import syntax |
 |----------|--------------|
@@ -130,6 +130,7 @@ Dependency extraction works across 12 languages. See [Supported Languages](/refe
 | PHP | `use`, `require`, `include` |
 | Ruby | `require`, `require_relative` |
 | Vue/Svelte | imports from `<script>` blocks |
+| Zig | `@import()` |
 
 ## Adding dependency context to searches
 

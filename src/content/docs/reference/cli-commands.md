@@ -11,10 +11,11 @@ Build or update the search index.
 rfx index [OPTIONS]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--force` | Rebuild the entire index, ignoring cached hashes |
-| `--languages <LANGS>` | Comma-separated list of languages to index |
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--force` | | Rebuild the entire index, ignoring cached hashes |
+| `--languages <LANGS>` | | Comma-separated list of languages to index |
+| `--quiet` | `-q` | Suppress progress output |
 
 ### Subcommands
 
@@ -42,12 +43,26 @@ rfx query [PATTERN] [OPTIONS]
 |------|-------|-------------|
 | `--symbols` | `-s` | Only return symbol definitions |
 | `--regex` | `-r` | Treat pattern as a regular expression |
+| `--ast` | | Match using Tree-sitter AST patterns |
 | `--lang <LANG>` | | Filter by language |
 | `--kind <KIND>` | | Filter by symbol kind (requires `--symbols`) |
 | `--paths <PATTERN>` | `-p` | Filter by file path prefix |
+| `--file <PATH>` | `-f` | Filter results to a specific file path |
+| `--glob <PATTERN>` | `-g` | Include only files matching glob pattern |
+| `--exclude <PATTERN>` | `-x` | Exclude files matching glob pattern |
+| `--exact` | | Exact symbol name match (no substring) |
+| `--contains` | | Substring matching for symbol names |
 | `--dependencies` | | Include dependency context in results |
+| `--expand` | | Show full symbol definitions in output |
 | `--json` | | Output results as JSON |
+| `--pretty` | | Pretty-print JSON output |
+| `--ai` | | AI-optimized output format |
+| `--plain` | | Disable colored output |
+| `--count` | `-c` | Show match count only |
 | `--limit <N>` | | Maximum number of results (default: 100) |
+| `--offset <N>` | `-o` | Skip first N results (pagination) |
+| `--all` | `-a` | Return all results (no limit) |
+| `--force` | | Bypass safety checks |
 | `--timeout <SECS>` | | Query timeout in seconds (default: 30) |
 
 ### Examples
@@ -150,7 +165,7 @@ Start the MCP (Model Context Protocol) server for AI assistant integration.
 rfx mcp
 ```
 
-No flags — the MCP server exposes 14 tools through the standard MCP protocol. See [MCP Tools](/reference/mcp-tools/) for the complete tool reference.
+No flags — the MCP server exposes 15 tools through the standard MCP protocol. See [MCP Tools](/reference/mcp-tools/) for the complete tool reference.
 
 ---
 
@@ -249,12 +264,8 @@ rfx pulse <SUBCOMMAND> [OPTIONS]
 
 | Subcommand | Description |
 |------------|-------------|
-| `digest` | Generate periodic change report |
-| `wiki` | Generate per-module documentation |
-| `map` | Generate architecture diagram |
-| `generate` | Generate complete static site |
-| `serve` | Serve generated site |
-| `watch` | Watch and auto-regenerate |
+| `generate` | Generate a complete static site with digest, wiki, and architecture map |
+| `serve` | Serve the generated site locally |
 
 See [Pulse guide](/guides/pulse/) for details.
 

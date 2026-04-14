@@ -60,7 +60,8 @@ src/
 │   ├── ruby.rs          # Ruby parser
 │   ├── kotlin.rs        # Kotlin parser
 │   ├── vue.rs           # Vue parser
-│   └── svelte.rs        # Svelte parser
+│   ├── svelte.rs        # Svelte parser
+│   └── zig.rs           # Zig parser
 └── ...
 tests/
 ├── integration_test.rs  # End-to-end tests
@@ -188,4 +189,4 @@ Three guiding values:
 
 - [Architecture](/reference/architecture/) — deep dive into the internals
 - [Supported Languages](/reference/supported-languages/) — existing parser details
-- [Changelog](/changelog/) — version history
+- [Changelog](https://github.com/reflex-search/reflex/releases) — version history

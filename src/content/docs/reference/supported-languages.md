@@ -3,14 +3,14 @@ title: Supported Languages
 description: Languages supported by Reflex, with file extensions, symbol types, and dependency tracking.
 ---
 
-Reflex supports 14 languages for full-text search and symbol extraction, with dependency tracking across 12 of them.
+Reflex supports 15 languages for full-text search and symbol extraction, with dependency tracking across all of them.
 
 ## Language matrix
 
 | Language | Extensions | Symbol types | Dependency tracking |
 |----------|-----------|--------------|-------------------|
 | Rust | `.rs` | Function, Struct, Enum, Trait, Type, Constant, Method, Macro | Yes |
-| TypeScript | `.ts`, `.tsx` | Function, Class, Interface, Type, Enum, Constant, Variable, Method | Yes |
+| TypeScript | `.ts`, `.tsx`, `.mts`, `.cts` | Function, Class, Interface, Type, Enum, Constant, Variable, Method | Yes |
 | JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | Function, Class, Constant, Variable, Method | Yes |
 | Python | `.py` | Function, Class, Variable, Decorator | Yes |
 | Go | `.go` | Function, Struct, Interface, Type, Constant, Variable, Method | Yes |

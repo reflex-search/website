@@ -1,9 +1,9 @@
 ---
 title: MCP Tools
-description: Complete reference for all 14 MCP tools exposed by Reflex's MCP server.
+description: Complete reference for all 15 MCP tools exposed by Reflex's MCP server.
 ---
 
-Reflex's MCP server (`rfx mcp`) exposes 14 tools through the Model Context Protocol. These tools let AI assistants search code, analyze dependencies, and understand your codebase.
+Reflex's MCP server (`rfx mcp`) exposes 15 tools through the Model Context Protocol. These tools let AI assistants search code, analyze dependencies, and understand your codebase.
 
 ## Search tools
 
@@ -132,6 +132,24 @@ Find disconnected clusters of files with no dependency relationships to the rest
 Get a high-level summary of the codebase's dependency structure.
 
 No parameters.
+
+## Context tools
+
+### `gather_context`
+
+Collect comprehensive codebase information — project structure, frameworks, entry points, and file statistics. With no parameters, all context types are gathered.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `structure` | bool | no | Show directory structure |
+| `file_types` | bool | no | Show file type distribution |
+| `project_type` | bool | no | Detect project type (CLI, library, webapp, monorepo) |
+| `framework` | bool | no | Detect frameworks and conventions |
+| `entry_points` | bool | no | Show entry point files |
+| `test_layout` | bool | no | Show test organization pattern |
+| `config_files` | bool | no | List important configuration files |
+| `depth` | int | no | Tree depth for structure (default: 2) |
+| `path` | string | no | Focus on a specific directory path |
 
 ## Setup
 

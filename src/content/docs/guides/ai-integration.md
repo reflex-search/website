@@ -3,7 +3,7 @@ title: AI Integration
 description: Connect Reflex to AI coding assistants via MCP and JSON output.
 ---
 
-Reflex is designed for AI coding workflows. It provides an MCP server with 14 tools, structured JSON output for agent pipelines, and automatic freshness detection so agents always work with up-to-date results.
+Reflex is designed for AI coding workflows. It provides an MCP server with 15 tools, structured JSON output for agent pipelines, and automatic freshness detection so agents always work with up-to-date results.
 
 ## MCP server
 
@@ -29,7 +29,7 @@ Add Reflex to your Claude MCP config:
 }
 ```
 
-Once configured, Claude can search your codebase, analyze dependencies, and understand your code structure through 14 MCP tools. See [MCP Tools Reference](/reference/mcp-tools/) for the complete tool list.
+Once configured, Claude can search your codebase, analyze dependencies, and understand your code structure through 15 MCP tools. See [MCP Tools Reference](/reference/mcp-tools/) for the complete tool list.
 
 ## JSON output for agent pipelines
 
@@ -135,6 +135,6 @@ rfx context --structure --file-types --entry-points
 
 ## Next steps
 
-- [MCP Tools Reference](/reference/mcp-tools/) — all 14 MCP tools with parameters
+- [MCP Tools Reference](/reference/mcp-tools/) — all 15 MCP tools with parameters
 - [AI Query Assistant](/guides/ai-query-assistant/) — `rfx ask` for conversational code queries
 - [CLI Commands](/reference/cli-commands/) — full JSON output reference

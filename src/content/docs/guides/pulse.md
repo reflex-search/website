@@ -1,25 +1,34 @@
 ---
 title: Pulse
-description: Auto-generated codebase intelligence — digests, wiki pages, and architecture maps.
+description: Generate a browsable intelligence site for your codebase — digests, wiki pages, and architecture maps.
 ---
 
 :::caution
 Pulse is a **preview feature**. Commands and output formats may change between releases.
 :::
 
-Pulse turns Reflex from a query tool into one that **proactively surfaces information** about your codebase. It generates three browsable surfaces grounded in index data:
+Pulse turns Reflex from a query tool into one that **proactively surfaces information** about your codebase. It generates a self-contained static site with three browsable surfaces grounded in index data.
 
-## Surfaces
+## Quick start
+
+```bash
+# Generate the Pulse site
+rfx pulse generate --output ./pulse-site
+
+# Serve it locally
+rfx pulse serve
+```
+
+That's it — open your browser and explore your codebase's structure, history, and architecture.
+
+## What gets generated
+
+The generated site includes three surfaces:
 
 ### Digest
 
-A periodic summary of structural changes in your codebase — not a git log, but an analysis of how your code's architecture is evolving.
+A periodic summary of structural changes — not a git log, but an analysis of how your code's architecture is evolving. The digest reports on:
 
-```bash
-rfx pulse digest
-```
-
-The digest reports on:
 - Module activity and growth
 - New symbols and removed symbols
 - Dependency changes
@@ -29,32 +38,17 @@ The digest reports on:
 ### Wiki
 
 One auto-generated documentation page per module. Each page includes:
+
 - What the module does
 - Its dependencies and dependents
 - Key symbols
 - Recent structural activity
 
-```bash
-rfx pulse wiki
-```
-
 ### Architecture map
 
-A generated dependency graph at varying zoom levels, output as Mermaid or D2 diagrams.
+A dependency graph at varying zoom levels, rendered as interactive diagrams.
 
-```bash
-rfx pulse map
-```
-
-## Static site generation
-
-Generate a complete, self-contained static HTML site with all three surfaces:
-
-```bash
-rfx pulse generate --output ./pulse-site
-```
-
-Options:
+## Generation options
 
 ```bash
 rfx pulse generate \
@@ -64,21 +58,9 @@ rfx pulse generate \
   --no-llm           # Structural data only, no LLM narration
 ```
 
-Serve the generated site:
-
-```bash
-rfx pulse serve
-```
-
-Watch for changes and auto-regenerate:
-
-```bash
-rfx pulse watch
-```
-
 ## Snapshots
 
-Pulse is built on **snapshots** — point-in-time captures of your codebase's structural state. Comparing snapshots produces diffs that power the digest.
+Pulse is built on **snapshots** — point-in-time captures of your codebase's structural state. Comparing snapshots produces the diffs that power the digest.
 
 ```bash
 # Take a snapshot

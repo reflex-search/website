@@ -65,7 +65,11 @@ export default defineConfig({
 					],
 				},
 				{ label: 'Contributing', slug: 'contributing' },
-				{ label: 'Changelog', slug: 'changelog' },
+				{
+					label: 'Changelog',
+					link: 'https://github.com/reflex-search/reflex/releases',
+					attrs: { target: '_blank' },
+				},
 			],
 		}),
 	],
