@@ -57,3 +57,20 @@ nav.sidebar .top-level > li + li {
 nav.sidebar a {
 	padding-block: 0.4rem;
 }
+
+/* Expressive Code — macOS terminal style */
+:root[data-theme='dark'] .expressive-code {
+	--ec-frm-trmTtbDotsOpa: 1;
+	--ec-frm-trmTtbBg: #252d38;
+	--ec-frm-trmTtbBrdBtmCol: #3a332c;
+	--ec-brdRad: 10px;
+}
+
+:root[data-theme='dark'] .expressive-code .header::before {
+	background: linear-gradient(
+		to right,
+		#ff5f57 33.33%,
+		#febc2e 33.33% 66.66%,
+		#28c840 66.66%
+	) !important;
+}
