@@ -1,7 +1,7 @@
 /* Reflex theme for asciinema-player
    Maps ANSI colors to the site's navy + orange + cream palette */
 
-.ap-reflex {
+.asciinema-player-theme-reflex {
 	--term-color-background: #121d26;
 	--term-color-foreground: #e8dcc8;
 
