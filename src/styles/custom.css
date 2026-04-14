@@ -1,0 +1,53 @@
+/* Reflex — Dark navy + orange accent theme
+   Derived from the Reflex logo: dark navy bg, orange chevrons, cream text */
+
+:root {
+	--sl-font-mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code',
+		'Source Code Pro', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+}
+
+/* Color palette — dark theme only */
+:root[data-theme='dark'] {
+	/* Accent — orange chevrons from logo */
+	--sl-color-accent-low: #3d1f0a;
+	--sl-color-accent: #e8722a;
+	--sl-color-accent-high: #f5c9a8;
+
+	/* Background — dark navy */
+	--sl-color-black: #121d26;
+	--sl-color-gray-6: #1a2530;
+	--sl-color-gray-5: #252019;
+
+	/* Text — warm cream */
+	--sl-color-white: #e8dcc8;
+
+	/* Warm gray scale */
+	--sl-color-gray-1: #c4b8a4;
+	--sl-color-gray-2: #8a7e6e;
+	--sl-color-gray-3: #5a5046;
+	--sl-color-gray-4: #3a332c;
+}
+
+/* Monospace headings */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: var(--sl-font-mono);
+}
+
+/* Sidebar group labels */
+.sidebar-content .top-level > li > details > summary > div > span,
+.sidebar-content .top-level > li > details > summary {
+	font-family: var(--sl-font-mono);
+	text-transform: uppercase;
+	font-size: 0.75rem;
+	letter-spacing: 0.05em;
+}
+
+/* Tighter sidebar spacing */
+nav.sidebar .top-level > li + li {
+	margin-top: 0.25rem;
+}

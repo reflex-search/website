@@ -1,0 +1,172 @@
+---
+title: Architecture
+description: Technical overview of Reflex's internal design, data formats, and query pipeline.
+---
+
+Reflex is a trigram-based full-text code search engine written in Rust, with runtime symbol detection via Tree-sitter. This page describes the internal architecture for contributors and users who want to understand how it works.
+
+## System overview
+
+```
+┌─────────────────────────────────────────────┐
+│                   CLI / API                  │
+├─────────────────────────────────────────────┤
+│           Query Engine                       │
+│   ┌─────────┐  ┌──────────┐  ┌───────────┐ │
+│   │ Trigram  │  │ Content  │  │  Symbol   │ │
+│   │  Index   │  │  Store   │  │  Parser   │ │
+│   └─────────┘  └──────────┘  └───────────┘ │
+├─────────────────────────────────────────────┤
+│              Cache Manager                   │
+│  ┌──────────┐ ┌────────────┐ ┌───────────┐ │
+│  │ meta.db  │ │trigrams.bin│ │content.bin│ │
+│  │ (SQLite) │ │  (rkyv)    │ │ (mmap)    │ │
+│  └──────────┘ └────────────┘ └───────────┘ │
+└─────────────────────────────────────────────┘
+```
+
+## Core components
+
+### Trigram Indexer
+
+Extracts every three-character sequence from source files and builds an inverted index: `trigram → [file_ids]`. At query time, trigrams from the search term are intersected to narrow the candidate file set by 100–1000x.
+
+### Content Store
+
+Binary format with memory-mapped I/O. File contents are concatenated with a file index for O(1) lookup. Memory mapping means the OS handles paging — only accessed regions are loaded into RAM.
+
+### Symbol Parser (runtime)
+
+Tree-sitter parsers run **at query time**, not during indexing. When a query includes `--symbols`, Reflex parses only the candidate files (already narrowed by trigrams) to extract symbol definitions.
+
+This is the key architectural decision: indexing is instant because it skips parsing entirely. Symbol search is still fast because trigrams eliminate most files before parsing begins.
+
+### Cache Manager
+
+Manages the `.reflex/` directory:
+- `meta.db` — SQLite database with file metadata, statistics, and configuration
+- `trigrams.bin` — rkyv-serialized trigram inverted index
+- `content.bin` — memory-mapped file contents
+- `hashes.json` — blake3 hashes for incremental indexing
+
+## Indexing pipeline
+
+1. **Walk** — traverse the file tree, respecting `.gitignore` and language filters
+2. **Hash** — compute blake3 hash of each file, skip unchanged files (incremental)
+3. **Extract** — generate trigrams from each file's content
+4. **Build** — construct the inverted index from all trigrams
+5. **Write** — serialize to `trigrams.bin` (rkyv) and `content.bin`, update `meta.db`
+
+Incremental performance: 1,000 files full index ~2s, 10 changed files ~200ms.
+
+## Query pipeline
+
+### Full-text search
+
+1. Extract trigrams from the query string
+2. Look up each trigram's posting list in the inverted index
+3. Intersect posting lists to get candidate files
+4. Scan candidates with memory-mapped content to verify matches
+5. Apply filters (language, path) and sort results
+
+Complexity: O(n + k log k + m) where n = posting list sizes, k = candidates, m = matches.
+
+### Symbol search
+
+1. Run full-text search to get candidate files
+2. Parse each candidate with the appropriate Tree-sitter grammar
+3. Walk the AST to find symbol definitions matching the query
+4. Filter by `--kind` if specified
+
+### Regex search
+
+1. Extract literal substrings from the regex pattern
+2. Use literals for trigram narrowing (if available)
+3. Fall back to scanning all files if no literals can be extracted
+4. Apply the full regex to candidate content
+
+## Data formats
+
+### `trigrams.bin`
+
+rkyv (zero-copy deserialization) serialized format:
+- Header: `RFTG` magic bytes
+- Trigram postings: `HashMap<[u8; 3], Vec<u32>>` mapping trigrams to file IDs
+- File list: ordered list of indexed file paths
+
+Zero-copy means the index is usable directly from the memory-mapped file without deserialization.
+
+### `content.bin`
+
+Custom binary format:
+- Header: `RFCT` magic bytes (32 bytes total)
+- Concatenated file contents
+- File index at the end: `(offset, length)` pairs for O(1) file lookup
+
+### `meta.db`
+
+SQLite database with three tables:
+
+| Table | Purpose |
+|-------|---------|
+| `files` | File paths, sizes, last modified times |
+| `statistics` | Aggregate stats (file count, language breakdown) |
+| `config` | Index configuration snapshot |
+
+## Performance optimizations
+
+### Memory-mapped I/O
+
+Both `trigrams.bin` and `content.bin` are accessed via `memmap2`. Benefits:
+- No explicit loading — the OS pages data on demand
+- Shared across processes
+- Efficient for large indexes
+
+### rkyv serialization
+
+Zero-copy deserialization for the trigram index. Unlike serde, rkyv's archived format is directly usable without copying data into Rust structs.
+
+### blake3 hashing
+
+blake3 is used for incremental indexing. It's ~10x faster than SHA-256 for file hashing, making the "what changed?" check negligible.
+
+### Parallel indexing
+
+Rayon parallelizes indexing across ~80% of available CPU cores.
+
+## Technology stack
+
+| Crate | Purpose |
+|-------|---------|
+| `tree-sitter` | Runtime parsing for symbol extraction |
+| `rkyv` | Zero-copy serialization for trigram index |
+| `memmap2` | Memory-mapped file I/O |
+| `rusqlite` | SQLite for metadata |
+| `blake3` | Fast content hashing |
+| `ignore` | `.gitignore`-aware file walking |
+| `rayon` | Parallel indexing |
+| `clap` | CLI argument parsing |
+| `axum` | HTTP API server |
+| `tokio` | Async runtime |
+| `serde_json` | JSON output |
+
+## Design principles
+
+1. **Performance first** — every design choice prioritizes query speed
+2. **Completeness over precision** — find every occurrence, let the user filter
+3. **Simplicity over features** — do fewer things well
+4. **Determinism** — same query, same results, every time
+5. **Extensibility** — adding a language means adding one parser file
+
+## References
+
+- [Russ Cox — Regular Expression Matching with a Trigram Index](https://swtch.com/~rsc/regexp/regexp4.html)
+- [Zoekt](https://github.com/sourcegraph/zoekt) — trigram code search
+- [Sourcegraph](https://sourcegraph.com/) — code intelligence platform
+- [ripgrep](https://github.com/BurntSushi/ripgrep) — regex search tool
+
+## Next steps
+
+- [Contributing](/contributing/) — development setup and code organization
+- [CLI Commands](/reference/cli-commands/) — full command reference
+- [Supported Languages](/reference/supported-languages/) — parser details per language

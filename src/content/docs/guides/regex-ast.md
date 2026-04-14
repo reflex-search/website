@@ -1,0 +1,84 @@
+---
+title: Regex & AST Patterns
+description: Use regular expressions and Tree-sitter AST queries for advanced pattern matching.
+---
+
+Beyond plain-text and symbol search, Reflex supports two advanced query modes: **regex** for pattern matching and **AST queries** for structural code search.
+
+## Regex search
+
+Use `--regex` (or `-r`) to search with regular expressions:
+
+```bash
+rfx query "handle[A-Z]\w+" --regex
+```
+
+Reflex optimizes regex queries by extracting literal substrings from the pattern, using them for trigram narrowing, then applying the full regex only to candidate files. This keeps most regex searches fast.
+
+### Examples
+
+```bash
+# Functions starting with "get" or "set"
+rfx query "(?:get|set)[A-Z]\w+" --regex --symbols
+
+# TODO comments with assignees
+rfx query "TODO\(\w+\):" --regex
+
+# IP address patterns
+rfx query "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}" --regex
+```
+
+### Performance notes
+
+Regex searches that contain **literal substrings** of 3+ characters are fast — Reflex extracts trigrams from the literals to narrow the search space.
+
+Patterns with few or no literals (like `.*` or `[a-z]+`) may fall back to scanning all files, which is slower on large codebases. Use `--timeout` to cap execution time:
+
+```bash
+rfx query "." --regex --timeout 5
+```
+
+## AST pattern matching
+
+AST queries use Tree-sitter's S-expression syntax to search for structural patterns in parsed code. This finds code by its syntactic structure rather than its text content.
+
+```bash
+rfx query "(function_declaration name: (identifier) @name)" --regex --lang rust
+```
+
+:::caution
+AST queries are **significantly slower** than trigram-based search because they parse entire files. For most use cases, `--symbols` with `--kind` is faster and sufficient. Use AST queries only when you need structural matching that symbols can't express.
+:::
+
+### When to use AST queries
+
+- Finding functions with specific parameter patterns
+- Matching nested structural patterns (e.g., a loop inside a conditional)
+- Searching for code shapes that aren't captured by symbol extraction
+
+### When to use `--symbols` instead
+
+For **95% of use cases**, `--symbols` with `--kind` is the right choice. It's faster and covers the most common needs: finding definitions by name and type.
+
+```bash
+# Prefer this (fast):
+rfx query "validate" --symbols --kind function
+
+# Over this (slow):
+rfx query "(function_declaration name: (identifier) @name (#match? @name \"validate\"))" --regex
+```
+
+## Combining modes
+
+You can combine regex with symbol filtering:
+
+```bash
+# Regex + symbols: find function definitions matching a pattern
+rfx query "handle[A-Z]" --regex --symbols --kind function
+```
+
+## Next steps
+
+- [Full-Text Search](/guides/full-text-search/) — the default (and fastest) search mode
+- [Symbol Search](/guides/symbol-search/) — symbol-aware filtering
+- [CLI Commands](/reference/cli-commands/) — all query options

@@ -1,0 +1,9 @@
+---
+// Forces dark theme without any toggle capability.
+// Replaces Starlight's built-in ThemeProvider.
+---
+
+<script is:inline>
+	document.documentElement.dataset.theme = 'dark';
+	document.documentElement.style.colorScheme = 'dark';
+</script>

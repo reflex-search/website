@@ -1,0 +1,521 @@
+---
+// Custom landing page — not a Starlight page.
+// Self-contained with inline styles, imports JetBrains Mono.
+import '@fontsource-variable/jetbrains-mono';
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Reflex — Local-first code search engine</title>
+		<meta
+			name="description"
+			content="Full-text search, symbol extraction, and dependency analysis for AI coding workflows. Sub-100ms queries. 14 languages. Deterministic results."
+		/>
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<style>
+			*,
+			*::before,
+			*::after {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			:root {
+				--bg: #1a2530;
+				--bg-deep: #121d26;
+				--accent: #e8722a;
+				--accent-hover: #f5893f;
+				--text: #e8dcc8;
+				--text-dim: #8a7e6e;
+				--surface: #252d38;
+				--border: #3a332c;
+				--mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code',
+					'Source Code Pro', Menlo, Consolas, monospace;
+			}
+
+			html {
+				color-scheme: dark;
+			}
+
+			body {
+				font-family: var(--mono);
+				background: var(--bg);
+				color: var(--text);
+				line-height: 1.6;
+			}
+
+			a {
+				color: var(--accent);
+				text-decoration: none;
+			}
+
+			a:hover {
+				color: var(--accent-hover);
+			}
+
+			/* Nav */
+			nav {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				max-width: 1100px;
+				margin: 0 auto;
+				padding: 1.5rem 2rem;
+			}
+
+			.wordmark {
+				font-size: 1.25rem;
+				font-weight: 700;
+				letter-spacing: -0.02em;
+			}
+
+			.wordmark .chevrons {
+				color: var(--accent);
+			}
+
+			.nav-links {
+				display: flex;
+				gap: 2rem;
+				list-style: none;
+				font-size: 0.875rem;
+			}
+
+			.nav-links a {
+				color: var(--text-dim);
+			}
+
+			.nav-links a:hover {
+				color: var(--text);
+			}
+
+			/* Hero */
+			.hero {
+				text-align: center;
+				padding: 5rem 2rem 4rem;
+				max-width: 800px;
+				margin: 0 auto;
+			}
+
+			.hero h1 {
+				font-size: 3rem;
+				font-weight: 700;
+				letter-spacing: -0.03em;
+				margin-bottom: 1rem;
+			}
+
+			.hero h1 .chevrons {
+				color: var(--accent);
+			}
+
+			.hero .tagline {
+				font-size: 1.125rem;
+				color: var(--text-dim);
+				max-width: 600px;
+				margin: 0 auto 2.5rem;
+				line-height: 1.7;
+			}
+
+			.install-block {
+				background: var(--bg-deep);
+				border: 1px solid var(--border);
+				border-radius: 8px;
+				padding: 1rem 1.5rem;
+				font-size: 0.9rem;
+				display: inline-block;
+				margin-bottom: 2.5rem;
+				color: var(--text-dim);
+			}
+
+			.install-block code {
+				color: var(--text);
+			}
+
+			.install-block .prompt {
+				color: var(--accent);
+			}
+
+			.cta-group {
+				display: flex;
+				gap: 1rem;
+				justify-content: center;
+				flex-wrap: wrap;
+			}
+
+			.btn {
+				display: inline-block;
+				padding: 0.75rem 1.75rem;
+				border-radius: 6px;
+				font-family: var(--mono);
+				font-size: 0.875rem;
+				font-weight: 600;
+				transition: background 0.15s;
+			}
+
+			.btn-primary {
+				background: var(--accent);
+				color: var(--bg-deep);
+			}
+
+			.btn-primary:hover {
+				background: var(--accent-hover);
+				color: var(--bg-deep);
+			}
+
+			.btn-secondary {
+				background: var(--surface);
+				color: var(--text);
+				border: 1px solid var(--border);
+			}
+
+			.btn-secondary:hover {
+				background: var(--border);
+				color: var(--text);
+			}
+
+			/* Features */
+			.features {
+				max-width: 1100px;
+				margin: 0 auto;
+				padding: 4rem 2rem;
+			}
+
+			.features h2 {
+				text-align: center;
+				font-size: 1.5rem;
+				margin-bottom: 2.5rem;
+				font-weight: 600;
+			}
+
+			.feature-grid {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 1.25rem;
+			}
+
+			.feature-card {
+				background: var(--bg-deep);
+				border: 1px solid var(--border);
+				border-radius: 8px;
+				padding: 1.5rem;
+			}
+
+			.feature-card h3 {
+				font-size: 0.9rem;
+				font-weight: 600;
+				margin-bottom: 0.5rem;
+				color: var(--accent);
+			}
+
+			.feature-card p {
+				font-size: 0.8rem;
+				color: var(--text-dim);
+				line-height: 1.5;
+			}
+
+			/* Code example */
+			.code-example {
+				max-width: 800px;
+				margin: 0 auto;
+				padding: 2rem 2rem 4rem;
+			}
+
+			.code-example h2 {
+				text-align: center;
+				font-size: 1.5rem;
+				margin-bottom: 2rem;
+				font-weight: 600;
+			}
+
+			.terminal {
+				background: var(--bg-deep);
+				border: 1px solid var(--border);
+				border-radius: 8px;
+				padding: 1.5rem;
+				overflow-x: auto;
+				font-size: 0.8rem;
+				line-height: 1.7;
+			}
+
+			.terminal .prompt {
+				color: var(--accent);
+			}
+
+			.terminal .cmd {
+				color: var(--text);
+			}
+
+			.terminal .output {
+				color: var(--text-dim);
+			}
+
+			.terminal .comment {
+				color: #5a5046;
+			}
+
+			/* Install */
+			.install {
+				text-align: center;
+				padding: 4rem 2rem;
+			}
+
+			.install h2 {
+				font-size: 1.5rem;
+				margin-bottom: 2rem;
+				font-weight: 600;
+			}
+
+			.install-methods {
+				display: flex;
+				gap: 1.5rem;
+				justify-content: center;
+				flex-wrap: wrap;
+			}
+
+			.install-method {
+				background: var(--bg-deep);
+				border: 1px solid var(--border);
+				border-radius: 8px;
+				padding: 1.25rem 2rem;
+				font-size: 0.85rem;
+			}
+
+			.install-method .label {
+				color: var(--text-dim);
+				font-size: 0.75rem;
+				display: block;
+				margin-bottom: 0.5rem;
+			}
+
+			.install-method code {
+				color: var(--text);
+			}
+
+			/* Footer */
+			footer {
+				text-align: center;
+				padding: 3rem 2rem;
+				color: var(--text-dim);
+				font-size: 0.75rem;
+				border-top: 1px solid var(--border);
+				max-width: 1100px;
+				margin: 0 auto;
+			}
+
+			footer a {
+				color: var(--text-dim);
+			}
+
+			footer a:hover {
+				color: var(--text);
+			}
+
+			.footer-links {
+				display: flex;
+				gap: 2rem;
+				justify-content: center;
+				margin-bottom: 1rem;
+			}
+
+			/* Responsive */
+			@media (max-width: 768px) {
+				.hero h1 {
+					font-size: 2rem;
+				}
+				.feature-grid {
+					grid-template-columns: 1fr;
+				}
+				.install-methods {
+					flex-direction: column;
+					align-items: center;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<nav>
+			<div class="wordmark">
+				<span class="chevrons">&gt;&gt;</span> rfx
+			</div>
+			<ul class="nav-links">
+				<li><a href="/getting-started/">Docs</a></li>
+				<li>
+					<a href="https://github.com/reflex-search/reflex">GitHub</a>
+				</li>
+			</ul>
+		</nav>
+
+		<section class="hero">
+			<h1><span class="chevrons">&gt;&gt;</span> Reflex</h1>
+			<p class="tagline">
+				Local-first code search engine with full-text search, symbol
+				extraction, and dependency analysis for AI coding workflows.
+			</p>
+			<div class="install-block">
+				<span class="prompt">$</span>
+				<code>npm install -g reflex-search</code>
+			</div>
+			<div class="cta-group">
+				<a href="/getting-started/" class="btn btn-primary"
+					>Read the Docs</a
+				>
+				<a
+					href="https://github.com/reflex-search/reflex"
+					class="btn btn-secondary">GitHub</a
+				>
+			</div>
+		</section>
+
+		<section class="features">
+			<h2>Why Reflex</h2>
+			<div class="feature-grid">
+				<div class="feature-card">
+					<h3>Sub-100ms Queries</h3>
+					<p>
+						Trigram indexing with memory-mapped I/O. 2–3ms on small
+						codebases, under 250ms on the Linux kernel.
+					</p>
+				</div>
+				<div class="feature-card">
+					<h3>Complete Coverage</h3>
+					<p>
+						Finds every occurrence — not just definitions. Same
+						query always produces the same results.
+					</p>
+				</div>
+				<div class="feature-card">
+					<h3>AI-Native</h3>
+					<p>
+						MCP server with 14 tools, JSON output for agent
+						pipelines, built-in AI query assistant.
+					</p>
+				</div>
+				<div class="feature-card">
+					<h3>14 Languages</h3>
+					<p>
+						Rust, TypeScript, Python, Go, Java, C/C++, and more.
+						Tree-sitter parsing for precise symbol extraction.
+					</p>
+				</div>
+				<div class="feature-card">
+					<h3>Dependency Analysis</h3>
+					<p>
+						Import tracking, reverse lookups, circular detection,
+						hotspot analysis across your entire codebase.
+					</p>
+				</div>
+				<div class="feature-card">
+					<h3>Deterministic</h3>
+					<p>
+						Fully local, fully offline. No cloud, no
+						non-determinism. Your code stays on your machine.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<section class="code-example">
+			<h2>See it in action</h2>
+			<div class="terminal">
+				<div>
+					<span class="comment"># Index your project</span>
+				</div>
+				<div>
+					<span class="prompt">$</span>
+					<span class="cmd"> rfx index</span>
+				</div>
+				<div>
+					<span class="output"
+						>Indexed 1,247 files (14 languages) in 1.8s</span
+					>
+				</div>
+				<br />
+				<div>
+					<span class="comment"># Search with symbol filtering</span>
+				</div>
+				<div>
+					<span class="prompt">$</span>
+					<span class="cmd">
+						rfx query "authenticate" --symbols --kind function</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>src/auth/mod.rs:42 fn authenticate(credentials:
+						&Credentials) → Result&lt;Session&gt;</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>src/middleware.rs:18 fn
+						authenticate_request(req: &Request) →
+						Result&lt;User&gt;</span
+					>
+				</div>
+				<div>
+					<span class="output">2 results in 3ms</span>
+				</div>
+				<br />
+				<div>
+					<span class="comment"># JSON output for AI pipelines</span>
+				</div>
+				<div>
+					<span class="prompt">$</span>
+					<span class="cmd">
+						rfx query "handleError" --json | jq '.results[0]'</span
+					>
+				</div>
+				<div>
+					<span class="output">{'{'}</span>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;"file": "src/api/handler.ts",</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;"line": 87,</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;"symbol": "handleError",</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;"kind": "Function"</span
+					>
+				</div>
+				<div>
+					<span class="output">{'}'}</span>
+				</div>
+			</div>
+		</section>
+
+		<section class="install">
+			<h2>Install</h2>
+			<div class="install-methods">
+				<div class="install-method">
+					<span class="label">npm</span>
+					<code>npm install -g reflex-search</code>
+				</div>
+				<div class="install-method">
+					<span class="label">cargo</span>
+					<code>cargo install reflex-search</code>
+				</div>
+			</div>
+		</section>
+
+		<footer>
+			<div class="footer-links">
+				<a href="/getting-started/">Documentation</a>
+				<a href="https://github.com/reflex-search/reflex">GitHub</a>
+			</div>
+			<p>MIT OR Apache-2.0</p>
+		</footer>
+	</body>
+</html>

@@ -1,0 +1,57 @@
+---
+title: Interactive Mode
+description: Use Reflex's TUI for live, interactive code search with instant results.
+---
+
+Reflex includes a terminal UI (TUI) for interactive code search. Launch it by running `rfx query` with no arguments:
+
+```bash
+rfx query
+```
+
+## Features
+
+- **Live search** — results update as you type
+- **Instant feedback** — trigram search returns results in milliseconds
+- **File preview** — see matching context inline
+- **Editor integration** — press Enter to open results in your editor
+
+## Keybindings
+
+| Key | Action |
+|-----|--------|
+| Type | Filter results live |
+| `↑` / `↓` | Navigate results |
+| `Enter` | Open selected result in editor |
+| `Tab` | Toggle between search and filter modes |
+| `Esc` | Exit interactive mode |
+| `Ctrl+C` | Quit |
+
+## Editor integration
+
+When you press Enter on a result, Reflex opens the file at the matching line in your `$EDITOR`. Set your preferred editor:
+
+```bash
+export EDITOR=nvim
+# or
+export EDITOR="code --goto"
+```
+
+## Symbol and language filters
+
+The TUI supports the same filters as CLI mode. You can toggle symbol-only mode and switch language filters while searching interactively.
+
+## When to use interactive mode
+
+Interactive mode is best for:
+- **Exploratory search** — when you're not sure exactly what you're looking for
+- **Code review** — quickly scanning through occurrences of a pattern
+- **Refactoring** — reviewing all uses of a function before renaming it
+
+For scripted workflows, use CLI mode with `--json` output instead. See [AI Integration](/guides/ai-integration/) for agent-oriented usage.
+
+## Next steps
+
+- [Full-Text Search](/guides/full-text-search/) — understand the search engine powering the TUI
+- [Symbol Search](/guides/symbol-search/) — filter results to definitions
+- [CLI Commands](/reference/cli-commands/) — all command-line options

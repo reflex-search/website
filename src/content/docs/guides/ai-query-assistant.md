@@ -1,0 +1,101 @@
+---
+title: AI Query Assistant
+description: Ask questions about your codebase in natural language with rfx ask.
+---
+
+`rfx ask` lets you query your codebase using natural language. It combines Reflex's search capabilities with an LLM to answer questions about your code.
+
+## Setup
+
+Configure your LLM provider:
+
+```bash
+rfx llm config
+```
+
+This interactive wizard sets up your API key, provider, and model. Configuration is stored in `~/.reflex/config.toml`.
+
+Check your current setup:
+
+```bash
+rfx llm status
+```
+
+### Supported providers
+
+| Provider | Models |
+|----------|--------|
+| Anthropic | Claude Sonnet, Claude Opus, Claude Haiku |
+| OpenAI | GPT-4o, GPT-4o-mini |
+| OpenRouter | Any model available on OpenRouter |
+
+## Interactive mode
+
+Start a conversation about your code:
+
+```bash
+rfx ask
+```
+
+This opens an interactive session where you can ask follow-up questions with full conversation history. The assistant searches your codebase to ground its answers.
+
+```
+>> How does authentication work in this project?
+>> What files would I need to change to add OAuth support?
+>> Show me the error handling pattern used in the API handlers.
+```
+
+## One-shot mode
+
+Ask a single question from the command line:
+
+```bash
+rfx ask "What does the handleRequest function do?"
+```
+
+## Modes
+
+### Answer mode (default)
+
+Returns a direct answer grounded in your code:
+
+```bash
+rfx ask "What database does this project use?" --answer
+```
+
+### Agentic mode
+
+Enables multi-step reasoning — the assistant can run multiple searches to build a comprehensive answer:
+
+```bash
+rfx ask "How would I add a new API endpoint?" --agentic
+```
+
+In agentic mode, the assistant iteratively searches your codebase, follows dependency chains, and synthesizes a thorough answer.
+
+### Execute mode
+
+```bash
+rfx ask "Find all TODO comments" --execute
+```
+
+Runs the query and returns raw results without LLM interpretation.
+
+## Provider selection
+
+Override the configured provider for a single query:
+
+```bash
+rfx ask "Explain the auth flow" --provider anthropic
+rfx ask "Explain the auth flow" --provider openai
+```
+
+## Project context
+
+If your project has a `REFLEX.md` file in the root, `rfx ask` automatically includes it as context. This helps the assistant understand your project's architecture, conventions, and terminology. See [Configuration](/getting-started/configuration/) for details.
+
+## Next steps
+
+- [AI Integration](/guides/ai-integration/) — MCP server and JSON output for agent workflows
+- [Configuration](/getting-started/configuration/) — LLM provider setup
+- [CLI Commands](/reference/cli-commands/) — full `rfx ask` reference

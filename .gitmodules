@@ -1,0 +1,3 @@
+[submodule "repos/reflex"]
+	path = repos/reflex
+	url = https://github.com/reflex-search/reflex.git
