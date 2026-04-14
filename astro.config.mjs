@@ -11,6 +11,8 @@ export default defineConfig({
 			customCss: [
 				'@fontsource-variable/jetbrains-mono',
 				'./src/styles/custom.css',
+				'asciinema-player/dist/bundle/asciinema-player.css',
+				'./src/styles/asciinema-theme.css',
 			],
 			components: {
 				ThemeProvider: './src/components/ForceDarkTheme.astro',

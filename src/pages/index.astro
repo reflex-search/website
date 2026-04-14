@@ -2,6 +2,9 @@
 // Custom landing page — not a Starlight page.
 // Self-contained with inline styles, imports JetBrains Mono.
 import '@fontsource-variable/jetbrains-mono';
+import AsciinemaPlayer from '../components/AsciinemaPlayer.astro';
+import 'asciinema-player/dist/bundle/asciinema-player.css';
+import '../styles/asciinema-theme.css';
 ---
 
 <html lang="en">
@@ -418,6 +421,17 @@ import '@fontsource-variable/jetbrains-mono';
 
 		<section class="code-example">
 			<h2>See it in action</h2>
+			<AsciinemaPlayer
+				src="/casts/demo.cast"
+				rows={50}
+				cols={100}
+				autoPlay={true}
+				loop={true}
+				speed={1.5}
+				idleTimeLimit={2}
+				fit="width"
+			/>
+			<noscript>
 			<div class="terminal">
 				<div>
 					<span class="comment"># Index your project</span>
