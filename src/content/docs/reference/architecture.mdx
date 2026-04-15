@@ -7,23 +7,37 @@ Reflex is a trigram-based full-text code search engine written in Rust, with run
 
 ## System overview
 
-```
-┌─────────────────────────────────────────────┐
-│                   CLI / API                  │
-├─────────────────────────────────────────────┤
-│           Query Engine                       │
-│   ┌─────────┐  ┌──────────┐  ┌───────────┐ │
-│   │ Trigram  │  │ Content  │  │  Symbol   │ │
-│   │  Index   │  │  Store   │  │  Parser   │ │
-│   └─────────┘  └──────────┘  └───────────┘ │
-├─────────────────────────────────────────────┤
-│              Cache Manager                   │
-│  ┌──────────┐ ┌────────────┐ ┌───────────┐ │
-│  │ meta.db  │ │trigrams.bin│ │content.bin│ │
-│  │ (SQLite) │ │  (rkyv)    │ │ (mmap)    │ │
-│  └──────────┘ └────────────┘ └───────────┘ │
-└─────────────────────────────────────────────┘
-```
+<div style="font-family: var(--sl-font-mono); border: 1px solid #3a332c; border-radius: 8px; overflow: hidden; max-width: 520px; font-size: 0.85rem; line-height: 1.4;">
+  <div style="background: #252d38; padding: 0.75rem 1rem; text-align: center; font-weight: 600; border-bottom: 1px solid #3a332c;">CLI / API</div>
+  <div style="padding: 0.75rem; border-bottom: 1px solid #3a332c;">
+    <div style="font-size: 0.75rem; color: #a89b89; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Query Engine</div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+      <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
+        <div style="font-weight: 600;">Trigram</div><div style="color: #a89b89; font-size: 0.75rem;">Index</div>
+      </div>
+      <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
+        <div style="font-weight: 600;">Content</div><div style="color: #a89b89; font-size: 0.75rem;">Store</div>
+      </div>
+      <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
+        <div style="font-weight: 600;">Symbol</div><div style="color: #a89b89; font-size: 0.75rem;">Parser</div>
+      </div>
+    </div>
+  </div>
+  <div style="padding: 0.75rem;">
+    <div style="font-size: 0.75rem; color: #a89b89; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Cache Manager</div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
+      <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
+        <div style="font-weight: 600;">meta.db</div><div style="color: #a89b89; font-size: 0.75rem;">SQLite</div>
+      </div>
+      <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
+        <div style="font-weight: 600;">trigrams.bin</div><div style="color: #a89b89; font-size: 0.75rem;">rkyv</div>
+      </div>
+      <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
+        <div style="font-weight: 600;">content.bin</div><div style="color: #a89b89; font-size: 0.75rem;">mmap</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 ## Core components
 

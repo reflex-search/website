@@ -3,7 +3,19 @@ title: Dependency Analysis
 description: Track imports, find reverse dependencies, and analyze your codebase's dependency graph.
 ---
 
+import AsciinemaPlayer from '../../../components/AsciinemaPlayer.astro';
+
 Reflex tracks file-level dependencies by extracting import/require/use statements from your code. This powers reverse lookups, circular dependency detection, hotspot analysis, and more.
+
+<AsciinemaPlayer
+	src="/casts/demo-deps.cast"
+	rows={30}
+	cols={94}
+	autoPlay={true}
+	speed={1}
+	loop={true}
+	idleTimeLimit={2}
+/>
 
 ## Per-file dependencies with `rfx deps`
 
