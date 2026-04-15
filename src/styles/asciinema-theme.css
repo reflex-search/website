@@ -2,7 +2,7 @@
    Maps ANSI colors to the site's navy + orange + cream palette */
 
 .asciinema-player-theme-reflex {
-	--term-color-background: #121d26;
+	--term-color-background: #0c1520;
 	--term-color-foreground: #e8dcc8;
 
 	/* Normal ANSI colors */
@@ -16,7 +16,7 @@
 	--term-color-7: #d0c4b0; /* white — cream dim */
 
 	/* Bright ANSI colors */
-	--term-color-8: #3a332c; /* bright black — visible gray */
+	--term-color-8: #655e52; /* bright black — visible gray */
 	--term-color-9: #f5893f; /* bright red → bright orange */
 	--term-color-10: #9ab88a; /* bright green */
 	--term-color-11: #e0c56a; /* bright yellow */
@@ -31,6 +31,7 @@
 	border: 1px solid #3a332c;
 	border-radius: 8px;
 	overflow: hidden;
+	background-color: #0c1520;
 }
 
 .asciinema-container .ap-player {

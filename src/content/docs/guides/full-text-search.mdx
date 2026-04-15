@@ -3,7 +3,20 @@ title: Full-Text Search
 description: Understand how Reflex's trigram-based search engine finds every occurrence in your codebase.
 ---
 
+import AsciinemaPlayer from '../../../components/AsciinemaPlayer.astro';
+
 Reflex's core search mode uses **trigram indexing** — the same technique behind Google Code Search and Zoekt. Every query finds every matching occurrence, not just definitions or references.
+
+<AsciinemaPlayer
+	src="/casts/demo-fulltext.cast"
+	rows={28}
+	cols={94}
+	autoPlay={true}
+	speed={1}
+	loop={true}
+	idleTimeLimit={2}
+/>
+
 
 ## How trigram search works
 

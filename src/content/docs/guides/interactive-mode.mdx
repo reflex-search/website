@@ -3,11 +3,19 @@ title: Interactive Mode
 description: Use Reflex's TUI for live, interactive code search with instant results.
 ---
 
+import AsciinemaPlayer from '../../../components/AsciinemaPlayer.astro';
+
 Reflex includes a terminal UI (TUI) for interactive code search. Launch it by running `rfx query` with no arguments:
 
-```bash
-rfx query
-```
+<AsciinemaPlayer
+	src="/casts/rfx-query-interactive.cast"
+	rows={30}
+	cols={94}
+	autoPlay={true}
+	speed={1}
+	loop={true}
+	idleTimeLimit={2}
+/>
 
 ## Features
 
