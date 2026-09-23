@@ -1,0 +1,10 @@
+# Minimal bash profile for the live asciinema demos (neutral prompt, no history)
+PS1='\n\[\e[1;32m\][\[\e]0;user@name: ~/code/reflex\a\]user@name:~/code/reflex]\$\[\e[0m\] '
+HISTFILE=/dev/null
+# rfx 2.0.0 writes a broad-query warning to stderr while the TUI is up, which
+# scrolls the screen. Hide stderr for the bare `rfx query` TUI only.
+rfx() {
+  if [[ $# -eq 1 && $1 == query ]]; then command rfx query 2>/dev/null; else command rfx "$@"; fi
+}
+# Keep personal Claude Code settings (hooks, status line, plugins) out of the recording
+alias claude='claude --setting-sources project,local'

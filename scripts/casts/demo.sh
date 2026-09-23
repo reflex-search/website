@@ -1,31 +1,12 @@
 #!/usr/bin/env bash
-# Demo script for rfx query — recorded with asciinema
-set -e
+# Records public/casts/rfx-query-demo.cast (94x30)
+source "$(dirname "$0")/lib.sh"
 
-# Typing simulation with realistic pacing
-type_cmd() {
-  local cmd="$1"
-  local pause="${2:-4}"  # seconds to pause after output (default 4)
-  printf '\n$ '
-  for ((i=0; i<${#cmd}; i++)); do
-    printf '%s' "${cmd:$i:1}"
-    sleep 0.04
-  done
-  sleep 0.5
-  printf '\n'
-  eval "$cmd"
-  sleep "$pause"
-}
+title "rfx — Fast, local code search for AI agents" "Trigram-indexed full-text search across any codebase"
 
-comment() {
-  printf '\n\033[1;36m# %s\033[0m\n' "$1"
-  sleep 2
-}
-
-clear
-printf '\033[1;33m  rfx — Fast, local code search for AI agents\033[0m\n'
-printf '\033[0;37m  Trigram-indexed full-text search across any codebase\033[0m\n'
-sleep 3
+# 0. Indexing
+comment "Index the codebase — code, docs, and config files"
+type_cmd 'rfx index' 5
 
 # 1. Basic full-text search
 comment "Full-text search — find every occurrence of a pattern"
@@ -57,8 +38,8 @@ type_cmd 'rfx query "SymbolKind" --symbols --json --limit 3' 5
 
 # 8. Dependency analysis
 comment "Dependency analysis — what does a file import?"
-type_cmd 'rfx deps src/query.rs' 5
+type_cmd 'rfx deps src/query/mod.rs' 5
 
-printf '\n\033[1;33m  ✓ All queries ran against the Reflex codebase (~70 source files)\033[0m\n'
-printf '\033[0;37m  Install: cargo install reflex-cli\033[0m\n\n'
+printf '\n\033[1;33m  ✓ All queries ran against the Reflex codebase (~300 files)\033[0m\n'
+printf '\033[0;37m  Install: cargo install reflex-search\033[0m\n\n'
 sleep 4

@@ -3,12 +3,12 @@ title: Architecture
 description: Technical overview of Reflex's internal design, data formats, and query pipeline.
 ---
 
-Reflex is a trigram-based full-text code search engine written in Rust, with runtime symbol detection via Tree-sitter. This page describes the internal architecture for contributors and users who want to understand how it works.
+Reflex is a trigram-based full-text code search engine written in Rust, with symbol detection via Tree-sitter. This page describes the internal architecture for contributors and users who want to understand how it works.
 
 ## System overview
 
 <div style="font-family: var(--sl-font-mono); border: 1px solid #3a332c; border-radius: 8px; overflow: hidden; max-width: 520px; font-size: 0.85rem; line-height: 1.4;">
-  <div style="background: #252d38; padding: 0.75rem 1rem; text-align: center; font-weight: 600; border-bottom: 1px solid #3a332c;">CLI / API</div>
+  <div style="background: #252d38; padding: 0.75rem 1rem; text-align: center; font-weight: 600; border-bottom: 1px solid #3a332c;">CLI / MCP / HTTP API</div>
   <div style="padding: 0.75rem; border-bottom: 1px solid #3a332c;">
     <div style="font-size: 0.75rem; color: #a89b89; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Query Engine</div>
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
@@ -19,7 +19,7 @@ Reflex is a trigram-based full-text code search engine written in Rust, with run
         <div style="font-weight: 600;">Content</div><div style="color: #a89b89; font-size: 0.75rem;">Store</div>
       </div>
       <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
-        <div style="font-weight: 600;">Symbol</div><div style="color: #a89b89; font-size: 0.75rem;">Parser</div>
+        <div style="font-weight: 600;">Symbol</div><div style="color: #a89b89; font-size: 0.75rem;">Cache + Parser</div>
       </div>
     </div>
   </div>
@@ -27,10 +27,10 @@ Reflex is a trigram-based full-text code search engine written in Rust, with run
     <div style="font-size: 0.75rem; color: #a89b89; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem;">Cache Manager</div>
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem;">
       <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
-        <div style="font-weight: 600;">meta.db</div><div style="color: #a89b89; font-size: 0.75rem;">SQLite</div>
+        <div style="font-weight: 600;">meta.db</div><div style="color: #a89b89; font-size: 0.75rem;">SQLite (WAL)</div>
       </div>
       <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
-        <div style="font-weight: 600;">trigrams.bin</div><div style="color: #a89b89; font-size: 0.75rem;">rkyv</div>
+        <div style="font-weight: 600;">trigrams.bin</div><div style="color: #a89b89; font-size: 0.75rem;">varint, mmap</div>
       </div>
       <div style="border: 1px solid #3a332c; border-radius: 4px; padding: 0.5rem; text-align: center; background: #0c1520;">
         <div style="font-weight: 600;">content.bin</div><div style="color: #a89b89; font-size: 0.75rem;">mmap</div>
@@ -43,89 +43,116 @@ Reflex is a trigram-based full-text code search engine written in Rust, with run
 
 ### Trigram Indexer
 
-Extracts every three-character sequence from source files and builds an inverted index: `trigram → [file_ids]`. At query time, trigrams from the search term are intersected to narrow the candidate file set by 100–1000x.
+Extracts every three-byte sequence from each file and builds an inverted index: `trigram → [(file, line)]`. At query time, the trigrams of the search term are intersected to find the few lines that can possibly match, so only those lines are verified.
 
 ### Content Store
 
-Binary format with memory-mapped I/O. File contents are concatenated with a file index for O(1) lookup. Memory mapping means the OS handles paging — only accessed regions are loaded into RAM.
+A single memory-mapped file holding the contents of every indexed file, with a fixed-width file table for O(1) lookup by file ID. Memory mapping means the OS handles paging: only the regions a query touches are loaded into RAM.
 
-### Symbol Parser (runtime)
+### Symbol Cache and Parser
 
-Tree-sitter parsers run **at query time**, not during indexing. When a query includes `--symbols`, Reflex parses only the candidate files (already narrowed by trigrams) to extract symbol definitions.
+`rfx index` extracts imports with Tree-sitter while it builds the trigram index, then spawns a **detached background pass** that parses every file once and stores its symbols in `meta.db`. The pass runs one combined Tree-sitter query per language per file and writes the symbol lists zstd-compressed. `rfx index status` shows its progress.
 
-This is the key architectural decision: indexing is instant because it skips parsing entirely. Symbol search is still fast because trigrams eliminate most files before parsing begins.
+Symbol queries read from this cache. A file the pass has not reached yet, or one that changed since, is parsed at query time with the same code, so `--symbols` works before the pass finishes. Cache entries are keyed by content hash, so a changed file is never served stale symbols.
+
+Files with no parser (the text, lock, and generated tiers, and Swift) are indexed for full-text search only.
 
 ### Cache Manager
 
 Manages the `.reflex/` directory:
-- `meta.db` — SQLite database with file metadata, statistics, and configuration
-- `trigrams.bin` — rkyv-serialized trigram inverted index
-- `content.bin` — memory-mapped file contents
-- `hashes.json` — blake3 hashes for incremental indexing
+
+| File | Purpose |
+|------|---------|
+| `meta.db` | SQLite database (WAL mode): file metadata and fingerprints, statistics, branch tracking, dependency graph, symbol cache |
+| `trigrams.bin` | Trigram inverted index (memory-mapped) |
+| `content.bin` | Full file contents (memory-mapped) |
+| `config.toml` | Index settings |
+| `index.lock` | OS advisory lock held for the whole `rfx index` run |
+| `indexing.lock`, `indexing.status` | Lock and progress file for the background symbol pass |
+
+`meta.db-wal` / `meta.db-shm` (SQLite WAL files) and a `trigram_temp/` directory (partial trigram batches on large trees) may also appear while Reflex is running.
 
 ## Indexing pipeline
 
-1. **Walk** — traverse the file tree, respecting `.gitignore` and language filters
-2. **Hash** — compute blake3 hash of each file, skip unchanged files (incremental)
-3. **Extract** — generate trigrams from each file's content
-4. **Build** — construct the inverted index from all trigrams
-5. **Write** — serialize to `trigrams.bin` (rkyv) and `content.bin`, update `meta.db`
+1. **Walk** — traverse the tree with ripgrep's defaults: respect `.gitignore`, `.ignore`, `.rgignore` and `[index] exclude`, skip dot-directories and binary files (a NUL byte anywhere). Every remaining file is indexed; code gets a language, everything else joins the text, lock, or generated tier
+2. **Incremental check** — skip files whose content is unchanged since the last run
+3. **Read, hash, extract** — a thread pool reads each file, hashes it with blake3, extracts imports with Tree-sitter, and extracts trigram postings
+4. **Build** — batches of up to 5,000 files or 48 MiB are built into trigram shards in parallel; on large trees partial batches go to `trigram_temp/` and are merged by byte copy, so the output is identical whatever the batch boundaries
+5. **Record** — file metadata is written in one transaction; imports are resolved against an in-memory path table and written through a single prepared-statement transaction
+6. **Write** — `trigrams.bin` and `content.bin` are written to a `.tmp` file, synced, and renamed into place, so readers only ever see a complete file
+7. **Symbols** — the detached background pass fills the symbol cache
 
-Incremental performance: 1,000 files full index ~2s, 10 changed files ~200ms.
+On a Kubernetes checkout (27,448 files, 245 MB, 16 cores), a from-scratch `rfx index` takes 7.7 s and the background symbol pass 3.4 s.
 
 ## Query pipeline
 
 ### Full-text search
 
-1. Extract trigrams from the query string
-2. Look up each trigram's posting list in the inverted index
-3. Intersect posting lists to get candidate files
-4. Scan candidates with memory-mapped content to verify matches
-5. Apply filters (language, path) and sort results
+1. Extract trigrams from the pattern
+2. Look up each trigram's posting list in the memory-mapped directory (binary search)
+3. Intersect the posting lists with a linear sorted merge, cheapest first; stop early once the next list is far larger than the surviving candidates
+4. Verify only the candidate lines, in parallel, against the file contents in `content.bin`
+5. Apply filters (language, file, glob, exclude, lock/generated tiers), group, and sort
 
-Complexity: O(n + k log k + m) where n = posting list sizes, k = candidates, m = matches.
+In parallel with the search, a separate thread checks **freshness**: it compares the working tree against the per-file fingerprints (size, `mtime_ns`, blake3 hash) stored at index time and sets `status` / `can_trust_results` on the response.
+
+When a limit is set, verification stops once the page is full, and the total is reported as a sampled estimate (`total_is_exact: false`, `approx_total`). Count mode (`--count`) builds no result objects at all and always reports an exact total.
 
 ### Symbol search
 
-1. Run full-text search to get candidate files
-2. Parse each candidate with the appropriate Tree-sitter grammar
-3. Walk the AST to find symbol definitions matching the query
-4. Filter by `--kind` if specified
+1. Use the trigram index to find candidate files for the pattern
+2. Read their symbols from the symbol cache, parsing only cache misses
+3. Match symbol names against the pattern (and `--kind`, if given)
 
 ### Regex search
 
-1. Extract literal substrings from the regex pattern
-2. Use literals for trigram narrowing (if available)
-3. Fall back to scanning all files if no literals can be extracted
-4. Apply the full regex to candidate content
+1. Extract literal substrings of 3+ characters from the regex
+2. Use the literals for trigram narrowing. Literals under `(?i)` are looked up under every case variant, so case-insensitive regexes also use the index
+3. Verify only the candidate lines the literals name, in parallel
+4. If no usable literal exists (for example `\w+_id`), fall back to scanning every line, with a warning
+
+`--timing --json` reports which path a query took: `index_path` is `"trigram"` or `"scan"`.
+
+### Long-running servers
+
+`rfx mcp` and `rfx serve` keep the index open across calls (memory maps, path table, query thread pool) and reopen it only when the files change on disk or after re-indexing.
 
 ## Data formats
 
-### `trigrams.bin`
+All integers are little-endian; posting lists use variable-length integers (varints).
 
-rkyv (zero-copy deserialization) serialized format:
-- Header: `RFTG` magic bytes
-- Trigram postings: `HashMap<[u8; 3], Vec<u32>>` mapping trigrams to file IDs
-- File list: ordered list of indexed file paths
+### `trigrams.bin` (format V4)
 
-Zero-copy means the index is usable directly from the memory-mapped file without deserialization.
+- **Header** (32 bytes): `RFTG` magic, version, trigram count, file count, offset of the paths section
+- **Directory**: one 16-byte entry per trigram (trigram, data offset, compressed size), sorted by trigram and binary-searched directly in the memory map
+- **Posting lists**: one posting per distinct trigram per line, grouped into per-file blocks: `varint(file_id delta)`, `varint(line count)`, then one `varint(line delta)` per line. No byte offsets are stored
+- **Paths section**: the indexed file paths, validated on open but decoded only on demand
 
-### `content.bin`
+The index is 0.9–1.4x the size of the corpus it covers for code (prose-heavy trees run larger, since nearly every trigram on a prose line is distinct).
 
-Custom binary format:
-- Header: `RFCT` magic bytes (32 bytes total)
-- Concatenated file contents
-- File index at the end: `(offset, length)` pairs for O(1) file lookup
+### `content.bin` (format V2)
+
+- **Header** (32 bytes): `RFCT` magic, version, file count, offset of the file index
+- **File contents**: concatenated
+- **File index**: a fixed-width table of 28-byte entries (content offset, length, path position, path length), read in place at `index_offset + file_id × 28`, followed by the path blob
+
+Opening the store is O(1): no table is decoded up front.
 
 ### `meta.db`
 
-SQLite database with three tables:
+SQLite database in WAL mode (`REFLEX_SQLITE_JOURNAL=delete` opts out, for network filesystems):
 
 | Table | Purpose |
 |-------|---------|
-| `files` | File paths, sizes, last modified times |
-| `statistics` | Aggregate stats (file count, language breakdown) |
+| `files` | Path, language, line count, and the freshness fingerprint (`size`, `mtime_ns`, `hash`, `dirty_at_index`) |
+| `statistics` | Aggregate stats, writer version, cache schema hash, last compaction time |
 | `config` | Index configuration snapshot |
+| `branches` / `file_branches` | Git-aware tracking: which content hash each file had on each branch |
+| `file_dependencies` | Imports per file, resolved to indexed files where possible |
+| `file_exports` | Re-exports (e.g. JavaScript/TypeScript barrel files) |
+| `symbols` | Background symbol cache, keyed by file and content hash, zstd-compressed |
+
+A schema hash computed at build time is stored in `statistics`, and a mismatch triggers a full rebuild. `statistics` also records the rfx version that wrote the cache: `rfx index` refuses a cache written by a different release (1.7.2 or later) unless you pass `--force` (which deletes `.reflex/`, `config.toml` included) or set `REFLEX_ALLOW_SCHEMA_REBUILD=1`.
 
 ## Performance optimizations
 
@@ -134,34 +161,44 @@ SQLite database with three tables:
 Both `trigrams.bin` and `content.bin` are accessed via `memmap2`. Benefits:
 - No explicit loading — the OS pages data on demand
 - Shared across processes
-- Efficient for large indexes
+- Opening the index is constant time; a query touches only the posting lists and file entries it needs
 
-### rkyv serialization
+### Compact posting lists
 
-Zero-copy deserialization for the trigram index. Unlike serde, rkyv's archived format is directly usable without copying data into Rust structs.
+Per-line postings with varint deltas that restart at every file block keep `trigrams.bin` near the size of the source itself. On a synthetic 30 MB corpus, `trigrams.bin` is about 30 MB.
 
 ### blake3 hashing
 
-blake3 is used for incremental indexing. It's ~10x faster than SHA-256 for file hashing, making the "what changed?" check negligible.
+blake3 fingerprints each file's content for incremental indexing, freshness checks, and symbol-cache keys. Freshness checks compare size and `mtime_ns` first and hash only on a mismatch, so a `touch` costs one hash.
 
-### Parallel indexing
+### Parallelism
 
-Rayon parallelizes indexing across ~80% of available CPU cores.
+- **Indexing** uses 80% of available cores, capped at 32
+- **Query verification** runs on a pool sized the same way
+- **The background symbol pass** uses 50% of cores, capped at 32
+
+`[performance] parallel_threads` and `symbol_threads` in `.reflex/config.toml` override these (`REFLEX_SYMBOL_THREADS` also overrides the symbol pass).
 
 ## Technology stack
 
 | Crate | Purpose |
 |-------|---------|
-| `tree-sitter` | Runtime parsing for symbol extraction |
-| `rkyv` | Zero-copy serialization for trigram index |
+| `tree-sitter` | Parsing for symbol and import extraction, AST queries |
 | `memmap2` | Memory-mapped file I/O |
-| `rusqlite` | SQLite for metadata |
+| `rusqlite` | SQLite for metadata, dependencies, and the symbol cache |
 | `blake3` | Fast content hashing |
+| `zstd` | Symbol cache compression |
+| `regex` | Regex search and verification |
+| `memchr` | Fast byte scanning |
 | `ignore` | `.gitignore`-aware file walking |
-| `rayon` | Parallel indexing |
+| `globset` | Glob filters |
+| `rayon` | Parallel indexing and verification |
+| `notify` | File watching (`rfx watch`) |
 | `clap` | CLI argument parsing |
 | `axum` | HTTP API server |
 | `tokio` | Async runtime |
+| `reqwest` | LLM provider requests (`rfx ask`, `rfx pulse`) |
+| `ratatui` | Interactive TUI |
 | `serde_json` | JSON output |
 
 ## Design principles

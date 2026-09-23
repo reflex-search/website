@@ -9,7 +9,7 @@ Reflex's core search mode uses **trigram indexing** — the same technique behin
 
 <AsciinemaPlayer
 	src="/casts/demo-fulltext.cast"
-	rows={28}
+	rows={30}
 	cols={94}
 	autoPlay={true}
 	speed={1}
@@ -20,15 +20,15 @@ Reflex's core search mode uses **trigram indexing** — the same technique behin
 
 ## How trigram search works
 
-A trigram is a sequence of three consecutive characters. When Reflex indexes your code, it extracts every trigram from every file and builds an inverted index mapping each trigram to the files that contain it.
+A trigram is a sequence of three consecutive characters. When Reflex indexes your code, it extracts every trigram from every line of every file and builds an inverted index mapping each trigram to the lines (grouped by file) that contain it.
 
 For a query like `handleRequest`:
 1. Reflex extracts trigrams: `han`, `and`, `ndl`, `dle`, `leR`, `eRe`, `Req`, `equ`, `que`, `ues`, `est`
-2. Looks up each trigram in the inverted index to get candidate files
-3. Intersects the candidate lists (AND operation) — only files containing *all* trigrams survive
-4. Scans the candidates to verify actual matches and extract line numbers
+2. Looks up each trigram's posting list in the memory-mapped index
+3. Intersects the lists (AND operation) — only lines containing *all* trigrams survive as candidates
+4. Verifies just those candidate lines, in parallel, against the actual query
 
-This narrows the search space by **100–1000x** before any file scanning, which is why queries run in single-digit milliseconds on most codebases.
+Because only candidate lines are ever compared against the query, most searches finish in single-digit milliseconds regardless of how much code doesn't match.
 
 ## Basic queries
 
@@ -39,9 +39,59 @@ rfx query "handleRequest"
 # Case-sensitive by default
 rfx query "HandleRequest"   # different from above
 
+# Ignore case (like rg -i)
+rfx query "handlerequest" -i
+
 # Phrases with spaces
-rfx query "function validate"
+rfx query "fn hash_content"
 ```
+
+### Whole identifiers by default
+
+A plain query matches **whole identifiers**: `Error` finds `Error` but not `NetworkError`, and `test` finds `test` but not `test_helper`. Use `--contains` for substring matching:
+
+```bash
+rfx query "hash_conten"             # 0 results — not a whole identifier
+rfx query "hash_conten" --contains  # matches hash_content, ...
+```
+
+When a whole-identifier search finds nothing but substring matches exist, Reflex tells you:
+
+```
+Hint: 0 whole-identifier matches; 9 substring matches — pass contains:true (--contains on the CLI) to see them. Reflex matches whole identifiers by default, so "hash_conten" does not match longer names that merely contain it.
+No results found (searched in 6ms).
+```
+
+`-i` / `--ignore-case` works with the default whole-identifier search, with `--contains` and with `--regex`. The literals are still looked up in the trigram index under every case variant, so a case-insensitive query costs about the same as a case-sensitive one.
+
+A pattern containing brackets (such as `unwrap()`) can never match as a whole identifier, so Reflex searches it as an escaped regex (substring semantics) and prints a warning on stderr. Patterns that start with `-` need `--pattern` or `--`:
+
+```bash
+rfx query --pattern "-> Result<"
+rfx query -- "-> Result<"
+```
+
+## What gets searched
+
+By default Reflex indexes the same files ripgrep would search: everything not excluded by `.gitignore`, `.ignore` or `.rgignore`, skipping binary files and dot-directories. Each file lands in one of these tiers:
+
+| Tier | Examples | Searched by default |
+|---|---|---|
+| Code | `.rs`, `.ts`, `.py`, … (15 parsed languages) | Yes |
+| Text | Markdown, YAML, TOML, JSON, `Makefile`, `Dockerfile`, … | Yes |
+| Lock | `Cargo.lock`, `package-lock.json`, `*.lock`, `go.sum` | No — pass `--include-locks` |
+| Generated | `*.pb.go`, `*.min.js`, `*.map`, `*_generated.*` | No — pass `--include-generated` |
+
+```bash
+# Only documentation and config files
+rfx query "timeout" --lang text
+
+# Which lockfile pins this package?
+rfx query "serde" --include-locks
+rfx query "serde" --lang lock      # lock files only
+```
+
+If a query misses only because the matches live in lock or generated files, Reflex prints a hint pointing at these flags.
 
 ## Filtering results
 
@@ -49,55 +99,101 @@ rfx query "function validate"
 
 ```bash
 rfx query "import" --lang typescript
-rfx query "use " --lang rust
+rfx query "use" --lang rust
 ```
 
 ### By file path
 
+`--file` does simple substring matching on the path:
+
 ```bash
-rfx query "TODO" --paths "src/api/"
+rfx query "TODO" --file src/cli/
 ```
 
-### Limit results
+`--glob` and `--exclude` follow **gitignore rules** (like `rg -g`) and can be repeated:
+
+```bash
+rfx query "TODO" --glob "src/**/*.rs"      # .rs files anywhere under the root src/
+rfx query "TODO" --glob "src/*.rs"         # only files directly in src/
+rfx query "TODO" --glob "**/src/**/*.rs"   # under any src/ directory
+rfx query "TODO" --exclude "tests/**"
+```
+
+- A pattern containing `/` is anchored at the index root, so `src/**/*.rs` does not match `vendor/src/x.rs`. Write `**/src/**/*.rs` for that.
+- A bare name (`*.rs`, `Makefile`) matches at any depth.
+- `*` never crosses `/`; `**` matches recursively.
+
+### Limit and paginate
 
 ```bash
 rfx query "error" --limit 20
+rfx query "error" --limit 20 --offset 20
+rfx query "error" --count     # exact total only, no results
 ```
+
+With a limit, Reflex stops verifying once the page is full and estimates the total:
+
+```
+Found 20 results (~383 total, estimated) in 6ms
+Use --limit/--offset to paginate, or --count for the exact total
+```
+
+The default limit is 100; `--all` removes it. Use `-p` / `--paths` to list only the unique matching file paths.
 
 ### Timeout
 
-Long-running queries can be capped:
+Long-running queries can be capped (`0` disables the timeout):
 
 ```bash
-rfx query "a]" --timeout 5
+rfx query "TODO" --timeout 5
 ```
 
 The default timeout is 30 seconds.
 
 ## Understanding results
 
-A typical result looks like:
+Results are grouped by file, sorted by path and then line number. Each match shows its line number followed by the matching line:
 
 ```
-src/auth/handler.rs:42  pub fn authenticate(creds: &Credentials) -> Result<Session> {
+  src/indexer.rs (6 matches)
+     635
+                                    let current_hash = self.hash_content(&bytes);
+  ────────────────────────────────────────
+     911
+                        let hash = self.hash_content(&bytes);
+  ────────────────────────────────────────
+    2547
+            fn hash_content(&self, content: &[u8]) -> String {
+
+Found 8 results in 6ms
 ```
 
-Format: `file:line  matching_line_content`
-
-Results are sorted by file path, then line number.
+In a terminal the file header gets a 📁 icon and syntax highlighting; `--plain` turns both off. Long previews are truncated to about 100 characters — `--no-truncate` shows full lines. For scripts and agents, `--json` returns the same results with pagination and index freshness (`status`, `can_trust_results`); `-C 3` adds three lines of context before and after each match to the JSON.
 
 ## Performance characteristics
 
-| Codebase size | Typical query time |
-|---|---|
-| Small (< 1,000 files) | 2–3ms |
-| Medium (1,000–10,000 files) | 10–50ms |
-| Large (60,000+ files, e.g. Linux kernel) | 100–250ms |
+On the Reflex repository itself (~300 files), a typical query takes 6–8 ms end to end. Published benchmarks:
 
-Performance comes from three techniques:
-- **Trigram indexing** — eliminates most files before scanning
-- **Memory-mapped I/O** — OS-level caching of index and content files
-- **Incremental indexing** — blake3 hashing detects changes instantly
+| Measurement | Result |
+|---|---|
+| Zero-hit search (30 MB corpus, median via `rfx mcp`) | 0.09 ms |
+| Common word, first page (30 MB corpus) | ~3 ms |
+| Regex `fn (get\|set)_\w+` (30 MB corpus) | ~12 ms |
+| `(?i)kubernetes --count` on Kubernetes (27,448 files, 115,539 matches) | 55 ms engine time |
+
+To be honest about the trade-off: on a warm mid-size repository, ripgrep still wins plain one-off scans by 6–10x. Reflex is built for what a linear scan can't do — symbol and dependency queries, and "every occurrence" on very large trees.
+
+Performance comes from:
+- **Trigram indexing** — only candidate lines are ever verified, in parallel
+- **Memory-mapped I/O** — the index opens in well under a millisecond and relies on the OS page cache
+- **Early stop** — with a limit, verification stops once the page is full
+- **Content fingerprints** — files are tracked by size, modification time and blake3 hash, so `rfx index` detects an unchanged tree instantly and every query can report whether its results are fresh
+
+Use `--timing` to see where the time goes (printed to stderr; with `--json` it becomes a `timings` object that also reports whether the index was used, `index_path: "trigram"`, or every line was scanned, `"scan"`):
+
+```
+timing: open 0.35ms | candidates 0.03ms | verify 1.10ms | status wait 5.05ms (compute 6.14ms) | group 0.00ms | engine 6.53ms | wall 6.59ms
+```
 
 ## When to use full-text vs. other modes
 

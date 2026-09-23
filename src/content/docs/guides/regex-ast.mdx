@@ -25,41 +25,70 @@ Use `--regex` (or `-r`) to search with regular expressions:
 rfx query "handle[A-Z]\w+" --regex
 ```
 
-Reflex optimizes regex queries by extracting literal substrings from the pattern, using them for trigram narrowing, then applying the full regex only to candidate files. This keeps most regex searches fast.
+Reflex optimizes regex queries by extracting literal substrings from the pattern, looking up their trigrams in the index, then applying the full regex only to the candidate lines those literals point at — in parallel. This keeps most regex searches fast.
+
+Standard regex syntax applies: `|` for alternation (no backslash needed), `.` and `.*` for wildcards, `^` and `$` to anchor to the start and end of a line. `--regex` can't be combined with `--contains`.
 
 ### Examples
 
 ```bash
-# Functions starting with "get" or "set"
-rfx query "(?:get|set)[A-Z]\w+" --regex --symbols
+# Function definitions starting with get_ or set_
+rfx query "fn (get|set)_\w+" --regex
+
+# Lines starting with import...from
+rfx query "^import.*from" --regex
+
+# Either of two identifiers
+rfx query "belongsTo|hasMany" --regex
 
 # TODO comments with assignees
 rfx query "TODO\(\w+\):" --regex
-
-# IP address patterns
-rfx query "\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}" --regex
 ```
+
+### Case-insensitive regex
+
+Use `-i` / `--ignore-case`, or an inline `(?i)` flag:
+
+```bash
+rfx query "todo" --regex -i
+rfx query "(?i)todo" --regex
+```
+
+Both use the trigram index: each literal is looked up under every case variant, so a case-insensitive regex costs about the same as a case-sensitive one.
 
 ### Performance notes
 
 Regex searches that contain **literal substrings** of 3+ characters are fast — Reflex extracts trigrams from the literals to narrow the search space.
 
-Patterns with few or no literals (like `.*` or `[a-z]+`) may fall back to scanning all files, which is slower on large codebases. Use `--timeout` to cap execution time:
+Patterns with no 3-character literal (like `.*`, `[a-z]+` or `\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`) fall back to verifying every line, and Reflex warns you:
+
+```
+Warning: Regex pattern '\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}' has no literals (≥3 chars), falling back to full content scan. This may be slow on large codebases. Consider using patterns with literal text.
+```
+
+This is slower on large codebases. Use `--timeout` to cap execution time:
 
 ```bash
 rfx query "." --regex --timeout 5
 ```
 
+`--timing --json` reports `index_path: "trigram"` when the index was used and `"scan"` when every line was verified.
+
 ## AST pattern matching
 
-AST queries use Tree-sitter's S-expression syntax to search for structural patterns in parsed code. This finds code by its syntactic structure rather than its text content.
+AST queries use Tree-sitter's S-expression syntax to search for structural patterns in parsed code. This finds code by its syntactic structure rather than its text content. Use `--ast`, name the language with `--lang`, and limit the scope with `--glob`:
 
 ```bash
-rfx query "(function_declaration name: (identifier) @name)" --regex --lang rust
+rfx query "(function_item name: (identifier) @name)" --ast --lang rust --glob "src/**/*.rs"
 ```
 
+Node names come from each language's Tree-sitter grammar — Rust functions are `function_item`, Python's are `function_definition`, TypeScript classes are `class_declaration`. An unknown node type is rejected with an error such as `Invalid node type "function_declaration"`.
+
+- `--lang` is required. AST queries support rust, python, go, java, c, c++, c#, php, ruby, kotlin, zig, typescript and javascript. Vue and Svelte use line-based parsing and don't support AST queries.
+- Without `--glob`, Reflex refuses the query as too broad (it would parse every file of that language). Add a `--glob`, or pass `--force` to scan everything anyway.
+
 :::caution
-AST queries are **significantly slower** than trigram-based search because they parse entire files. For most use cases, `--symbols` with `--kind` is faster and sufficient. Use AST queries only when you need structural matching that symbols can't express.
+AST queries are **significantly slower** than trigram-based search because they parse entire files — about 400 ms for the Reflex repository's Rust files, against single-digit milliseconds for a symbol search. For most use cases, `--symbols` with `--kind` is faster and sufficient. Use AST queries only when you need structural matching that symbols can't express.
 :::
 
 ### When to use AST queries
@@ -74,20 +103,22 @@ For **95% of use cases**, `--symbols` with `--kind` is the right choice. It's fa
 
 ```bash
 # Prefer this (fast):
-rfx query "validate" --symbols --kind function
+rfx query "validate" --kind function
 
 # Over this (slow):
-rfx query "(function_declaration name: (identifier) @name (#match? @name \"validate\"))" --regex
+rfx query '(function_item name: (identifier) @name (#match? @name "validate"))' --ast --lang rust --glob "src/**/*.rs"
 ```
 
 ## Combining modes
 
-You can combine regex with symbol filtering:
+You can combine regex with symbol filtering. With `--regex`, `--symbols` / `--kind` return the symbols whose definition **contains** a matching line — so anchor the pattern on the definition itself to get just the definitions:
 
 ```bash
-# Regex + symbols: find function definitions matching a pattern
-rfx query "handle[A-Z]" --regex --symbols --kind function
+# Regex + kind: function definitions matching a pattern
+rfx query "fn handle_\w+" --regex --kind function
 ```
+
+A looser pattern such as `handle_\w+` would also return every function whose body merely *calls* a `handle_…` function.
 
 ## Next steps
 

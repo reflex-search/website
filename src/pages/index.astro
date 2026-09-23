@@ -14,7 +14,7 @@ import '../styles/asciinema-theme.css';
 		<title>Reflex — Local-first code search engine</title>
 		<meta
 			name="description"
-			content="Full-text search, symbol extraction, and dependency analysis for AI coding workflows. Sub-100ms queries. 15 languages. Deterministic results."
+			content="Full-text search, symbol extraction, and dependency analysis for AI coding workflows. Millisecond queries. 15 parsed languages plus every text file. Deterministic results."
 		/>
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<style>
@@ -294,6 +294,7 @@ import '../styles/asciinema-theme.css';
 
 			.install-method code {
 				color: var(--text);
+				overflow-wrap: anywhere;
 			}
 
 			/* Footer */
@@ -375,31 +376,36 @@ import '../styles/asciinema-theme.css';
 			<h2>Why Reflex</h2>
 			<div class="feature-grid">
 				<div class="feature-card">
-					<h3>Sub-100ms Queries</h3>
+					<h3>Fast at Scale</h3>
 					<p>
-						Trigram indexing with memory-mapped I/O. 2–3ms on small
-						codebases, under 250ms on the Linux kernel.
+						Indexes a 27,448-file Kubernetes checkout in 7.7s on 16
+						cores. Median queries on a 30 MB corpus: ~3ms
+						for a common word, ~12ms for a regex.
 					</p>
 				</div>
 				<div class="feature-card">
 					<h3>Complete Coverage</h3>
 					<p>
-						Finds every occurrence — not just definitions. Same
-						query always produces the same results.
+						Finds every occurrence — not just definitions — across
+						the same files ripgrep searches. Whole-identifier
+						matching by default, plus substring and case-insensitive
+						search.
 					</p>
 				</div>
 				<div class="feature-card">
 					<h3>AI-Native</h3>
 					<p>
-						MCP server with 15 tools, JSON output for agent
-						pipelines, built-in AI query assistant.
+						MCP server with 17 tools, JSON output for agent
+						pipelines, built-in AI query assistant. In A/B tests,
+						same task success at ~31% lower cost per task.
 					</p>
 				</div>
 				<div class="feature-card">
-					<h3>15 Languages</h3>
+					<h3>15 Languages + Text</h3>
 					<p>
-						Rust, TypeScript, Python, Go, Java, C/C++, and more.
-						Tree-sitter parsing for precise symbol extraction.
+						Rust, TypeScript, Python, Go, Java, C/C++, and more,
+						parsed with Tree-sitter for precise symbols. Every other
+						non-binary file is indexed for full-text search.
 					</p>
 				</div>
 				<div class="feature-card">
@@ -412,8 +418,9 @@ import '../styles/asciinema-theme.css';
 				<div class="feature-card">
 					<h3>Deterministic</h3>
 					<p>
-						Fully local, fully offline. No cloud, no
-						non-determinism. Your code stays on your machine.
+						Fully local, fully offline. Same query, same results,
+						and every response says whether the index is fresh. Your
+						code stays on your machine.
 					</p>
 				</div>
 			</div>
@@ -423,7 +430,7 @@ import '../styles/asciinema-theme.css';
 			<h2>See it in action</h2>
 			<AsciinemaPlayer
 				src="/casts/demo.cast"
-				rows={48}
+				rows={49}
 				cols={104}
 				autoPlay={true}
 				loop={true}
@@ -441,8 +448,27 @@ import '../styles/asciinema-theme.css';
 					<span class="cmd"> rfx index</span>
 				</div>
 				<div>
+					<span class="output">Indexing complete!</span>
+				</div>
+				<div>
 					<span class="output"
-						>Indexed 1,247 files (15 languages) in 1.8s</span
+						>&nbsp;&nbsp;Files indexed: 298</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;Index/corpus ratio: 1.3x (trigrams.bin 5.94 MB,
+						content.bin 4.42 MB)</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;Text: 67 files, Lock: 1, Generated: 0</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>Starting background symbol indexing...</span
 					>
 				</div>
 				<br />
@@ -452,24 +478,28 @@ import '../styles/asciinema-theme.css';
 				<div>
 					<span class="prompt">$</span>
 					<span class="cmd">
-						rfx query "authenticate" --symbols --kind function</span
+						rfx query "resolve_thread_count" --kind function</span
 					>
 				</div>
 				<div>
 					<span class="output"
-						>src/auth/mod.rs:42 fn authenticate(credentials:
-						&Credentials) → Result&lt;Session&gt;</span
+						>📁 src/models.rs (1 match)</span
 					>
 				</div>
 				<div>
 					<span class="output"
-						>src/middleware.rs:18 fn
-						authenticate_request(req: &Request) →
-						Result&lt;User&gt;</span
+						>&nbsp;&nbsp;&nbsp;635 [fn] resolve_thread_count</span
 					>
 				</div>
 				<div>
-					<span class="output">2 results in 3ms</span>
+					<span class="output"
+						>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;pub fn
+						resolve_thread_count(configured: usize, auto_cap: usize)
+						-&gt; usize {'{'}</span
+					>
+				</div>
+				<div>
+					<span class="output">Found 1 result in 6ms</span>
 				</div>
 				<br />
 				<div>
@@ -478,7 +508,8 @@ import '../styles/asciinema-theme.css';
 				<div>
 					<span class="prompt">$</span>
 					<span class="cmd">
-						rfx query "handleError" --json | jq '.results[0]'</span
+						rfx query "resolve_thread_count" --symbols --json | jq
+						'.results[0]'</span
 					>
 				</div>
 				<div>
@@ -486,28 +517,50 @@ import '../styles/asciinema-theme.css';
 				</div>
 				<div>
 					<span class="output"
-						>&nbsp;&nbsp;"file": "src/api/handler.ts",</span
+						>&nbsp;&nbsp;"path": "src/models.rs",</span
 					>
 				</div>
 				<div>
 					<span class="output"
-						>&nbsp;&nbsp;"line": 87,</span
+						>&nbsp;&nbsp;"language": "rust",</span
 					>
 				</div>
 				<div>
 					<span class="output"
-						>&nbsp;&nbsp;"symbol": "handleError",</span
+						>&nbsp;&nbsp;"matches": [{'{'}</span
 					>
 				</div>
 				<div>
 					<span class="output"
-						>&nbsp;&nbsp;"kind": "Function"</span
+						>&nbsp;&nbsp;&nbsp;&nbsp;"kind": "Function",</span
 					>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;&nbsp;&nbsp;"symbol": "resolve_thread_count",</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;&nbsp;&nbsp;"span": {'{'} "start_line": 635,
+						"end_line": 643 {'}'},</span
+					>
+				</div>
+				<div>
+					<span class="output"
+						>&nbsp;&nbsp;&nbsp;&nbsp;"preview": "pub fn
+						resolve_thread_count(configured: usize, auto_cap: usize)
+						-&gt; usize {'{'}\n …"</span
+					>
+				</div>
+				<div>
+					<span class="output">&nbsp;&nbsp;{'}'}]</span>
 				</div>
 				<div>
 					<span class="output">{'}'}</span>
 				</div>
 			</div>
+			</noscript>
 		</section>
 
 		<section class="install">
@@ -520,6 +573,22 @@ import '../styles/asciinema-theme.css';
 				<div class="install-method">
 					<span class="label">cargo</span>
 					<code>cargo install reflex-search</code>
+				</div>
+				<div class="install-method">
+					<span class="label">shell (Linux, macOS)</span>
+					<code
+						>curl --proto '=https' --tlsv1.2 -LsSf
+						https://github.com/reflex-search/reflex/releases/latest/download/reflex-search-installer.sh
+						| sh</code
+					>
+				</div>
+				<div class="install-method">
+					<span class="label">PowerShell (Windows)</span>
+					<code
+						>powershell -ExecutionPolicy Bypass -c "irm
+						https://github.com/reflex-search/reflex/releases/latest/download/reflex-search-installer.ps1
+						| iex"</code
+					>
 				</div>
 			</div>
 		</section>

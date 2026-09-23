@@ -52,7 +52,6 @@ export default defineConfig({
 						{
 							label: 'Pulse',
 							slug: 'guides/pulse',
-							badge: { text: 'Preview', variant: 'caution' },
 						},
 					],
 				},
