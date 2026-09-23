@@ -17,7 +17,7 @@ languages = []
 text_tier = true
 # "tracked" (default): every non-binary file that is not gitignored and not
 #   under a dot-directory — ripgrep's defaults
-# "allowlist": the pre-2.0 rule — code plus a fixed docs/config extension list
+# "allowlist": code plus a fixed docs/config extension list
 mode = "tracked"
 # Also walk dot-directories and dotfiles (.githooks/, .env.example);
 # .git/ and .reflex/ are never indexed
@@ -147,7 +147,7 @@ Environment variables override or supplement the config files:
 | `REFLEX_SYMBOL_THREADS` | Overrides `[performance] symbol_threads` |
 | `REFLEX_INDEX_BATCH_FILES`, `REFLEX_INDEX_BATCH_BYTES` | Indexing batch size limits (defaults 5000 files, 48 MiB) |
 | `REFLEX_FRESHNESS_TTL_MS` | How long `rfx mcp` / `rfx serve` reuse a freshness check before re-checking the working tree (default 1000 ms) |
-| `REFLEX_MCP_COLUMNAR` | Set to `0` to return the legacy file-grouped `results` array from MCP search tools instead of the columnar format |
+| `REFLEX_MCP_COLUMNAR` | Set to `0` to return the file-grouped `results` array from MCP search tools instead of the columnar format |
 | `REFLEX_MCP_TIMING` | Set to `1` to add per-phase `timings` to MCP `search_code` / `search_regex` responses |
 | `REFLEX_SQLITE_JOURNAL` | SQLite journal mode for `meta.db` (default `WAL`) |
 | `REFLEX_ALLOW_SCHEMA_REBUILD` | Allow `rfx index` to rebuild an index written by a different Reflex version without `--force` |

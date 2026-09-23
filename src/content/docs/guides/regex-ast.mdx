@@ -54,7 +54,7 @@ rfx query "todo" --regex -i
 rfx query "(?i)todo" --regex
 ```
 
-Both still use the trigram index: each literal is looked up under every case variant, so a case-insensitive regex costs about the same as a case-sensitive one. (Before v2.0.0, `(?i)` patterns fell back to scanning every file.)
+Both use the trigram index: each literal is looked up under every case variant, so a case-insensitive regex costs about the same as a case-sensitive one.
 
 ### Performance notes
 

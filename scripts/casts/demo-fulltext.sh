@@ -10,7 +10,7 @@ type_cmd 'rfx query "trigram"' 4
 comment "Substring search — find partial matches with --contains"
 type_cmd 'rfx query "trigram" --contains --limit 5' 5
 
-comment "Case-insensitive search with -i (new in 2.0)"
+comment "Case-insensitive search with -i"
 type_cmd 'rfx query "TRIGRAM" -i --lang rust --count' 4
 
 comment "Filter by language — only search Rust files"

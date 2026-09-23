@@ -45,7 +45,7 @@ By default (`[index] mode = "tracked"`), Reflex indexes every file that isn't gi
 
 These tiers get full-text and regex search only. They're never parsed for symbols or dependencies.
 
-To go back to the pre-2.0 behavior (code plus a fixed list of docs and config extensions, with no lock or generated files), set `mode = "allowlist"` in the `[index]` section of `.reflex/config.toml`.
+To index only code plus a fixed list of docs and config extensions (no lock or generated files), set `mode = "allowlist"` in the `[index]` section of `.reflex/config.toml`.
 
 ## Dependency import syntax
 

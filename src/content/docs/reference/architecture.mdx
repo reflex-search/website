@@ -82,7 +82,7 @@ Manages the `.reflex/` directory:
 6. **Write** — `trigrams.bin` and `content.bin` are written to a `.tmp` file, synced, and renamed into place, so readers only ever see a complete file
 7. **Symbols** — the detached background pass fills the symbol cache
 
-On a Kubernetes checkout (27,448 files, 245 MB, 16 cores), a from-scratch `rfx index` takes 7.7 s (532 s before 2.0.0) and the background symbol pass 3.4 s (was 44.9 s).
+On a Kubernetes checkout (27,448 files, 245 MB, 16 cores), a from-scratch `rfx index` takes 7.7 s and the background symbol pass 3.4 s.
 
 ## Query pipeline
 
@@ -165,7 +165,7 @@ Both `trigrams.bin` and `content.bin` are accessed via `memmap2`. Benefits:
 
 ### Compact posting lists
 
-Per-line postings with varint deltas that restart at every file block keep `trigrams.bin` near the size of the source itself. On a synthetic 30 MB corpus, the 2.0.0 format shrank it from 127 MB to 30 MB.
+Per-line postings with varint deltas that restart at every file block keep `trigrams.bin` near the size of the source itself. On a synthetic 30 MB corpus, `trigrams.bin` is about 30 MB.
 
 ### blake3 hashing
 

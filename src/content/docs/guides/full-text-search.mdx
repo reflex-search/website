@@ -119,7 +119,7 @@ rfx query "TODO" --glob "**/src/**/*.rs"   # under any src/ directory
 rfx query "TODO" --exclude "tests/**"
 ```
 
-- A pattern containing `/` is anchored at the index root, so `src/**/*.rs` no longer matches `vendor/src/x.rs`. Write `**/src/**/*.rs` for that.
+- A pattern containing `/` is anchored at the index root, so `src/**/*.rs` does not match `vendor/src/x.rs`. Write `**/src/**/*.rs` for that.
 - A bare name (`*.rs`, `Makefile`) matches at any depth.
 - `*` never crosses `/`; `**` matches recursively.
 
@@ -172,7 +172,7 @@ In a terminal the file header gets a 📁 icon and syntax highlighting; `--plain
 
 ## Performance characteristics
 
-On the Reflex repository itself (~300 files), a typical query takes 6–8 ms end to end. The published v2.0.0 benchmarks:
+On the Reflex repository itself (~300 files), a typical query takes 6–8 ms end to end. Published benchmarks:
 
 | Measurement | Result |
 |---|---|

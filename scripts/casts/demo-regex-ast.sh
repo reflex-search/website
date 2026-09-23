@@ -20,7 +20,7 @@ comment "Count how many .unwrap() vs .expect() calls exist"
 type_cmd 'rfx query "\.unwrap\(\)" --regex --lang rust --count' 2
 type_cmd 'rfx query "\.expect\(" --regex --lang rust --count' 4
 
-comment "Case-insensitive regex still uses the index (new in 2.0)"
+comment "Case-insensitive regex uses the index too"
 type_cmd 'rfx query "(?i)symbolkind" --regex --lang rust --count' 4
 
 comment "AST search — structural code matching with tree-sitter"

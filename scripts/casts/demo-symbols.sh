@@ -19,7 +19,7 @@ type_cmd 'rfx query "SymbolKind" --symbols --kind enum' 5
 comment "Find trait definitions"
 type_cmd 'rfx query "trait" --symbols --kind trait' 5
 
-comment "--kind implies --symbols (new in 2.0)"
+comment "--kind implies --symbols"
 type_cmd 'rfx query "Config" --kind struct' 5
 
 comment "Combine symbol search with language filter"
