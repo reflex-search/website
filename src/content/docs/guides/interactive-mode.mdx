@@ -1,6 +1,6 @@
 ---
 title: Interactive Mode
-description: Use Reflex's TUI for live, interactive code search with instant results.
+description: Use Reflex's TUI for interactive code search with instant results.
 ---
 
 import AsciinemaPlayer from '../../../components/AsciinemaPlayer.astro';
@@ -9,7 +9,7 @@ Reflex includes a terminal UI (TUI) for interactive code search. Launch it by ru
 
 <AsciinemaPlayer
 	src="/casts/rfx-query-interactive.cast"
-	rows={30}
+	rows={33}
 	cols={94}
 	autoPlay={true}
 	speed={1}
@@ -19,35 +19,91 @@ Reflex includes a terminal UI (TUI) for interactive code search. Launch it by ru
 
 ## Features
 
-- **Live search** — results update as you type
-- **Instant feedback** — trigram search returns results in milliseconds
-- **File preview** — see matching context inline
-- **Editor integration** — press Enter to open results in your editor
+- **Fast search** — type a pattern and press Enter; trigram search returns results in milliseconds
+- **Live filters** — toggle symbols, regex, substring, language and kind filters; results refresh automatically half a second after a change
+- **File preview** — press Enter on a result to see the file around the match
+- **Editor integration** — press `o` to open the result in your editor at the matching line
+- **Query history** — recall earlier searches, with their filters, across sessions
+- **Mouse support** — click to select, double-click to preview, scroll to navigate
+
+If the project has no index yet, the TUI builds one when it starts.
 
 ## Keybindings
 
+The search box has focus when the TUI starts. Type your pattern and press Enter to run the search; focus then moves to the results list, where the single-key shortcuts below apply. Press `?` at any time for the built-in help screen.
+
+### Search and focus
+
 | Key | Action |
 |-----|--------|
-| Type | Filter results live |
-| `↑` / `↓` | Navigate results |
-| `Enter` | Open selected result in editor |
-| `Tab` | Toggle between search and filter modes |
-| `Esc` | Exit interactive mode |
-| `Ctrl+C` | Quit |
+| `Enter` (in search box) | Run the search and move to results |
+| `/` | Focus the search box |
+| `Tab` / `Shift+Tab` | Cycle focus between search box, filter bar and results |
+| `Esc` | Close the file preview, or leave the search box |
+| `Ctrl+P` / `Ctrl+N` | Previous / next query from history |
+
+### Navigation
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Next result (scrolls down in the preview) |
+| `↑` | Previous result (scrolls up in the preview) |
+| `PgDn` / `PgUp` | Jump 10 results down / up |
+| `Home` | First result |
+| `End` / `G` | Last result |
+| `Enter` (in results) | Open the file preview |
+| `o` | Open the selected result in your editor |
+
+### Filters
+
+| Key | Action |
+|-----|--------|
+| `s` | Toggle symbols-only mode |
+| `r` | Toggle regex mode |
+| `c` | Toggle contains (substring) mode |
+| `e` | Toggle expand mode (full definitions) |
+| `l` | Pick a language filter |
+| `k` | Pick a symbol kind filter |
+| `Ctrl+L` / `Ctrl+K` | Clear the language / kind filter |
+
+Glob and exclude patterns aren't available in the TUI yet (`g` and `x` just point you to the CLI's `--glob` and `--exclude` flags).
+
+### Actions
+
+| Key | Action |
+|-----|--------|
+| `i` | Re-index the project |
+| `I` | Clear the index and rebuild it |
+| `?` | Toggle the help screen |
+| `q` | Quit (when the search box isn't focused) |
+| `Ctrl+C` | Quit from anywhere |
 
 ## Editor integration
 
-When you press Enter on a result, Reflex opens the file at the matching line in your `$EDITOR`. Set your preferred editor:
+When you press `o` on a result, Reflex suspends the TUI and opens the file in `$EDITOR` (falling back to `vim`), then returns to the TUI when the editor exits. It knows how to jump to the matching line for these editors:
+
+| `$EDITOR` | Command run |
+|---|---|
+| `vim`, `nvim` | `$EDITOR +LINE file` |
+| `emacs` | `emacs +LINE:0 file` |
+| `code`, `vscode` | `$EDITOR -g file:LINE` |
+| anything else | `$EDITOR file` (opens at the top) |
+
+`$EDITOR` is run as a single program name, so set it to the bare command:
 
 ```bash
 export EDITOR=nvim
 # or
-export EDITOR="code --goto"
+export EDITOR=code
 ```
+
+A value with arguments, such as `"code --goto"`, won't launch.
 
 ## Symbol and language filters
 
-The TUI supports the same filters as CLI mode. You can toggle symbol-only mode and switch language filters while searching interactively.
+The TUI supports the core filters from CLI mode: symbols-only, regex, contains, expand, language and symbol kind. Filter changes re-run the current search after a 500 ms pause, so you can flip several toggles before it fires. Each search returns up to 500 results and times out after 10 seconds.
+
+Queries are saved with their filters to `~/.reflex/interactive_history.json` (the last 1,000), so `Ctrl+P` recalls them in later sessions too.
 
 ## When to use interactive mode
 

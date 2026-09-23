@@ -5,12 +5,12 @@ description: Ask questions about your codebase in natural language with rfx ask.
 
 import AsciinemaPlayer from '../../../components/AsciinemaPlayer.astro';
 
-`rfx ask` lets you query your codebase using natural language. It combines Reflex's search capabilities with an LLM to answer questions about your code.
+`rfx ask` lets you query your codebase using natural language. An LLM turns your question into `rfx query` commands, Reflex runs them against your local index, and (optionally) the LLM answers from the results.
 
 
 <AsciinemaPlayer
 	src="/casts/rfx-ask-interactive.cast"
-	rows={34}
+	rows={35}
 	cols={104}
 	autoPlay={true}
 	speed={1}
@@ -21,13 +21,13 @@ import AsciinemaPlayer from '../../../components/AsciinemaPlayer.astro';
 
 ## Setup
 
-Configure your LLM provider:
+`rfx ask` needs an index (`rfx index`) and an LLM provider. Configure the provider with:
 
 ```bash
 rfx llm config
 ```
 
-This interactive wizard sets up your API key, provider, and model. Configuration is stored in `~/.reflex/config.toml`.
+This interactive wizard sets up your provider, API key, and model. Configuration is stored in `~/.reflex/config.toml` and is shared with [Pulse](/guides/pulse/). (`rfx ask --configure` still works, but is deprecated in favor of `rfx llm config`.)
 
 Check your current setup:
 
@@ -35,13 +35,63 @@ Check your current setup:
 rfx llm status
 ```
 
+```
+Provider: anthropic
+Model:    claude-3-5-haiku-20241022
+API key:  configured (sk-ant-a...****)
+```
+
 ### Supported providers
 
-| Provider | Models |
-|----------|--------|
-| Anthropic | Claude Sonnet, Claude Opus, Claude Haiku |
-| OpenAI | GPT-4o, GPT-4o-mini |
-| OpenRouter | Any model available on OpenRouter |
+| Provider | `provider` value | Default model |
+|----------|------------------|---------------|
+| OpenAI | `openai` (default) | `gpt-4o-mini` |
+| Anthropic | `anthropic` | `claude-3-5-haiku-20241022` |
+| OpenRouter | `openrouter` | `anthropic/claude-sonnet-4` |
+| OpenAI-compatible | `openai-compatible` | none (you must set a model and base URL) |
+
+The OpenAI-compatible provider works with any server that exposes an OpenAI-style `/chat/completions` endpoint, such as a local model server. The API key is optional for this provider. Without one, requests are sent with no auth header.
+
+### Manual configuration
+
+You can also edit `~/.reflex/config.toml` directly:
+
+```toml
+[semantic]
+provider = "anthropic"
+# model = "claude-3-5-haiku-20241022"   # optional; overrides the per-provider model below
+
+[credentials]
+anthropic_api_key = "sk-ant-..."
+anthropic_model = "claude-3-5-haiku-20241022"
+```
+
+The `[credentials]` section takes `<provider>_api_key` and `<provider>_model` for `openai`, `anthropic`, `openrouter`, and `openai_compatible`. OpenRouter also accepts `openrouter_sort` (`price`, `speed`, or `throughput`). For an OpenAI-compatible server:
+
+```toml
+[semantic]
+provider = "openai-compatible"
+
+[credentials]
+openai_compatible_base_url = "http://localhost:1234/v1"
+openai_compatible_model = "qwen2.5-coder"
+# openai_compatible_api_key = "..."    # optional
+```
+
+### Environment variables
+
+For CI or headless use, you can configure everything from the environment:
+
+| Variable | Purpose |
+|----------|---------|
+| `REFLEX_PROVIDER` | Override the provider |
+| `REFLEX_MODEL` | Override the model |
+| `REFLEX_AI_API_KEY` | API key for whichever provider is selected |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_COMPATIBLE_API_KEY` | Provider-specific API keys |
+| `OPENAI_COMPATIBLE_BASE_URL`, `OPENAI_COMPATIBLE_MODEL` | Fallback base URL and model for `openai-compatible` |
+| `REFLEX_LLM_TIMEOUT_SECONDS` | LLM request timeout (default: 30) |
+
+API keys are looked up in this order: `~/.reflex/config.toml`, then `REFLEX_AI_API_KEY`, then the provider-specific variable.
 
 ## Interactive mode
 
@@ -51,13 +101,24 @@ Start a conversation about your code:
 rfx ask
 ```
 
-This opens an interactive session where you can ask follow-up questions with full conversation history. The assistant searches your codebase to ground its answers.
+With no question, `rfx ask` opens an interactive chat TUI (same as `rfx ask -i`) with full conversation history. The assistant searches your codebase to ground its answers.
 
 ```
 >> How does authentication work in this project?
 >> What files would I need to change to add OAuth support?
 >> Show me the error handling pattern used in the API handlers.
 ```
+
+Slash commands inside the chat:
+
+| Command | Action |
+|---------|--------|
+| `/clear` | Clear conversation history (also `Ctrl+L`) |
+| `/compact` | Summarize old messages to save tokens (also `Ctrl+K`) |
+| `/model [provider] [model]` | Show or change provider/model |
+| `/help` | Show help |
+
+`Ctrl+U` clears the input, Up/Down and PgUp/PgDn scroll, and `Ctrl+C` quits.
 
 ## One-shot mode
 
@@ -67,11 +128,13 @@ Ask a single question from the command line:
 rfx ask "What does the handleRequest function do?"
 ```
 
+By default, one-shot mode runs the generated queries right away. It prints them under a `Generated Queries:` heading, followed by the raw matches grouped by file (`Found N total results across M files:`).
+
 ## Modes
 
-### Answer mode (default)
+### Answer mode
 
-Returns a direct answer grounded in your code:
+Add `--answer` to get a conversational answer based on the search results, instead of the raw matches:
 
 ```bash
 rfx ask "What database does this project use?" --answer
@@ -79,21 +142,39 @@ rfx ask "What database does this project use?" --answer
 
 ### Agentic mode
 
-Enables multi-step reasoning — the assistant can run multiple searches to build a comprehensive answer:
+Enables multi-step reasoning. The assistant decides whether it needs more context, gathers it with tools, generates queries, runs them, evaluates the results, and refines them if needed:
 
 ```bash
-rfx ask "How would I add a new API endpoint?" --agentic
+rfx ask "How would I add a new API endpoint?" --agentic --answer
 ```
 
-In agentic mode, the assistant iteratively searches your codebase, follows dependency chains, and synthesizes a thorough answer.
+| Flag | Description |
+|------|-------------|
+| `--max-iterations <N>` | Maximum refinement iterations (default: 2) |
+| `--no-eval` | Skip result evaluation |
+| `--show-reasoning` | Show LLM reasoning at each phase |
+| `--verbose` | Show tool results and details |
+| `--quiet` | Suppress progress output |
 
-### Execute mode
+### Confirm before running
 
 ```bash
 rfx ask "Find all TODO comments" --execute
 ```
 
-Runs the query and returns raw results without LLM interpretation.
+With `--execute`, `rfx ask` shows the generated queries and asks `Run these queries against your codebase? [y/N]` before running them. Anything but `y` aborts.
+
+:::caution
+The v2.0.0 `--help` text describes `--execute` as "Execute queries immediately without confirmation". The code does the opposite: a plain one-shot `rfx ask` already runs queries immediately, and `--execute` adds the confirmation prompt.
+:::
+
+### JSON output
+
+```bash
+rfx ask "Find all TODO comments" --json --pretty
+```
+
+Returns the generated queries, the results, the total count, and (with `--answer`) the answer as JSON, without progress output.
 
 ## Provider selection
 
@@ -101,15 +182,23 @@ Override the configured provider for a single query:
 
 ```bash
 rfx ask "Explain the auth flow" --provider anthropic
-rfx ask "Explain the auth flow" --provider openai
+rfx ask "Explain the auth flow" --provider openai-compatible
 ```
 
 ## Project context
 
 If your project has a `REFLEX.md` file in the root, `rfx ask` automatically includes it as context. This helps the assistant understand your project's architecture, conventions, and terminology. See [Configuration](/getting-started/configuration/) for details.
 
+You can also inject extra context for a single question, for example from `rfx context`:
+
+```bash
+rfx ask "find auth" --additional-context "$(rfx context --framework)"
+```
+
+Use `--debug` to print the full LLM prompts.
+
 ## Next steps
 
 - [AI Integration](/guides/ai-integration/) — MCP server and JSON output for agent workflows
-- [Configuration](/getting-started/configuration/) — LLM provider setup
+- [Configuration](/getting-started/configuration/) — project configuration
 - [CLI Commands](/reference/cli-commands/) — full `rfx ask` reference

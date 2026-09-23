@@ -22,34 +22,70 @@ Reflex tracks file-level dependencies by extracting import/require/use statement
 See what a specific file imports:
 
 ```bash
-rfx deps src/auth/handler.rs
+rfx deps src/watcher.rs
 ```
 
 ```
-src/auth/handler.rs
-├── src/auth/credentials.rs (internal)
-├── src/auth/session.rs (internal)
-├── src/models/user.rs (internal)
-├── anyhow (external)
-└── std::collections::HashMap (stdlib)
+Dependencies of src/watcher.rs:
+  └─ anyhow [external] (line 6)
+  └─ notify [external] (line 7)
+  └─ std::collections::HashSet [stdlib] (line 8)
+  └─ std::path [stdlib] (line 9)
+  └─ std::sync::mpsc [stdlib] (line 10)
+  └─ std::time [stdlib] (line 11)
+  └─ crate::indexer::Indexer [internal] (line 13)
+  └─ crate::output [internal] (line 14)
+  └─ super::* [internal] (line 250)
+  └─ std::fs [stdlib] (line 251)
+  └─ tempfile::TempDir [external] (line 252)
+
+Found 11 dependencies
 ```
+
+Each entry shows the import as written, its [type](#dependency-types) and the line it appears on. Imports are extracted during `rfx index`, so `rfx deps` answers from the index without re-parsing.
 
 ### Reverse dependencies
 
 Find every file that imports a given file:
 
 ```bash
-rfx deps src/auth/handler.rs --reverse
+rfx deps src/content_store.rs --reverse
+```
+
+```
+Files that import src/content_store.rs:
+  └─ src/background_indexer.rs
+  └─ src/cli/query.rs
+  └─ src/query/open_index.rs
+  └─ src/indexer.rs
+  └─ src/query/result.rs
+  └─ src/lib.rs
+
+Found 6 dependents
 ```
 
 This answers "what breaks if I change this file?" — essential for safe refactoring.
 
 ### Deeper traversal
 
-Explore transitive dependencies:
+Explore transitive dependencies (the default depth is 1):
 
 ```bash
-rfx deps src/main.rs --depth 3
+rfx deps src/watcher.rs --depth 3
+```
+
+```
+Dependencies of src/watcher.rs (depth 3):
+└─ src/indexer.rs
+└─ src/output.rs
+  └─ src/background_indexer.rs
+  └─ src/cache.rs
+  └─ src/content_store.rs
+  ...
+    └─ src/symbol_cache.rs
+    └─ src/trigram.rs
+
+Found 27 transitive dependencies
 ```
 
 ### Output formats
@@ -58,16 +94,35 @@ rfx deps src/main.rs --depth 3
 # Tree view (default)
 rfx deps src/main.rs --format tree
 
-# Table view
+# Table view (Path / Type / Line columns)
 rfx deps src/main.rs --format table
 
-# JSON for scripting
+# JSON for scripting (add --pretty for readable output)
 rfx deps src/main.rs --json
 ```
 
+JSON output is an array of imports, each with `import_type`, `line`, `path` and the imported `symbols`:
+
+```json
+[{"import_type":"external","line":6,"path":"anyhow","symbols":["Context","Result"]}, ...]
+```
+
+:::note
+The `--help` text also lists `dot` as a format, but it isn't implemented in v2.0.0 — `rfx deps` and `rfx analyze` reject `--format dot`.
+:::
+
 ## Codebase analysis with `rfx analyze`
 
-Analyze your entire dependency graph:
+Analyze your entire dependency graph. With no flags, `rfx analyze` prints a summary:
+
+```
+Dependency Analysis Summary
+
+Circular Dependencies: 1 cycle(s)
+Hotspots: 68 file(s) with 2+ dependents
+Unused Files: 24 file(s)
+Islands: 187 disconnected component(s) (2 clusters of 2+ files, 185 isolated files)
+```
 
 ### Circular dependencies
 
@@ -75,15 +130,32 @@ Analyze your entire dependency graph:
 rfx analyze --circular
 ```
 
-Finds dependency cycles (A → B → C → A) that can cause build issues and architectural problems.
+```
+Circular Dependencies Found:
+
+Cycle 1:
+  → src/interactive/app.rs
+  → src/interactive/ui.rs
+  → src/interactive/app.rs (cycle completes)
+```
+
+Finds dependency cycles (A → B → C → A) that can cause build issues and architectural problems. Rust `mod` declarations are excluded from cycle detection, since they express parent–child ownership rather than usage.
 
 ### Hotspots
 
 ```bash
 rfx analyze --hotspots
+rfx analyze --hotspots --min-dependents 5
 ```
 
-Identifies files with the highest fan-in (most depended upon). These are your highest-impact files — changes here affect the most code.
+```
+Hotspots (Most-Imported Files):
+  1. src/models.rs (69 imports)
+  2. src/cache.rs (39 imports)
+  3. src/parsers/mod.rs (22 imports)
+```
+
+Identifies files with the highest fan-in (most depended upon). These are your highest-impact files — changes here affect the most code. Only files with at least `--min-dependents` dependents (default 2) are listed.
 
 ### Unused files
 
@@ -91,15 +163,26 @@ Identifies files with the highest fan-in (most depended upon). These are your hi
 rfx analyze --unused
 ```
 
-Finds files that nothing imports — potential dead code candidates.
+Finds files that nothing imports — potential dead code candidates. Files outside the import graph — Markdown, config and other text files — show up here too.
 
 ### Isolated subgraphs
 
 ```bash
 rfx analyze --islands
+rfx analyze --islands --min-island-size 3
 ```
 
-Detects disconnected clusters of files that have no dependency relationship with the rest of your codebase.
+Detects disconnected clusters of files that have no dependency relationship with the rest of your codebase. `--min-island-size` (default 2) and `--max-island-size` (default 500 or 50% of all files) bound which clusters are reported.
+
+### Sorting, counting and formats
+
+```bash
+rfx analyze --hotspots --sort asc          # least important first (default: desc)
+rfx analyze --hotspots --count             # just the count
+rfx analyze --hotspots --format table      # Rank / Imports / File columns
+```
+
+`--sort` applies to hotspots (by import count), islands (by size) and cycles (by length).
 
 ### Pagination
 
@@ -118,17 +201,18 @@ rfx analyze --hotspots --all --json
 
 ## Dependency types
 
-Reflex classifies every dependency into one of three types:
+Reflex classifies every dependency into one of four types:
 
 | Type | Description | Example |
 |------|-------------|---------|
 | `internal` | Files within your project | `use crate::auth::handler` |
 | `external` | Third-party packages | `use anyhow::Result` |
 | `stdlib` | Standard library | `use std::collections::HashMap` |
+| `mod_decl` | Rust module declaration (parent owns child) | `mod filter;` |
 
 ## Supported languages
 
-Dependency extraction works across all 15 supported languages. See [Supported Languages](/reference/supported-languages/) for the full matrix of what import syntax each language supports.
+Dependency extraction works across all 15 parsed languages. Text, lock and generated files have no imports. See [Supported Languages](/reference/supported-languages/) for the full matrix of what import syntax each language supports.
 
 | Language | Import syntax |
 |----------|--------------|
@@ -140,7 +224,7 @@ Dependency extraction works across all 15 supported languages. See [Supported La
 | C/C++ | `#include` |
 | C# | `using` |
 | PHP | `use`, `require`, `include` |
-| Ruby | `require`, `require_relative` |
+| Ruby | `require`, `require_relative`, `load` |
 | Vue/Svelte | imports from `<script>` blocks |
 | Zig | `@import()` |
 
@@ -149,10 +233,10 @@ Dependency extraction works across all 15 supported languages. See [Supported La
 Add `--dependencies` to a regular query to see import context alongside search results:
 
 ```bash
-rfx query "handleRequest" --dependencies
+rfx query "hash_content" --kind method --dependencies
 ```
 
-This enriches each result with the file's direct dependencies, useful for understanding the context around a match.
+This enriches each result with the file's imports — in text output as a `Dependencies:` list under the match, and in JSON as a `dependencies` array on each file — useful for understanding the context around a match. This flag is documented as Rust-only: for other languages Reflex prints a warning.
 
 ## Next steps
 

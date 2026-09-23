@@ -5,7 +5,7 @@ description: Filter search results to symbol definitions using Tree-sitter parsi
 
 import AsciinemaPlayer from '../../../components/AsciinemaPlayer.astro';
 
-Symbol search combines Reflex's full-text trigram search with runtime Tree-sitter parsing to filter results down to **symbol definitions** — functions, classes, structs, interfaces, and more.
+Symbol search combines Reflex's full-text trigram search with Tree-sitter parsing to filter results down to **symbol definitions** — functions, classes, structs, interfaces, and more.
 
 <AsciinemaPlayer
 	src="/casts/demo-symbols.cast"
@@ -21,57 +21,88 @@ Symbol search combines Reflex's full-text trigram search with runtime Tree-sitte
 
 Reflex uses a two-phase approach:
 
-1. **Trigram search** finds all files containing the query text (fast, milliseconds)
-2. **Tree-sitter parsing** runs on each candidate file to identify symbol definitions (lazy, on-demand)
+1. **Trigram search** finds the files containing the query text (fast, milliseconds)
+2. **Symbol lookup** reads each candidate file's symbols from the symbol cache and keeps the definitions that match
 
-This "runtime symbol detection" architecture means indexing is instant (no parsing during `rfx index`) while symbol searches are still fast because trigrams narrow the search space first.
+The symbol cache is filled by a **background symbol pass**: after `rfx index` finishes the trigram index, it starts a detached process that parses every file once with Tree-sitter and stores the symbols (zstd-compressed) in `.reflex/meta.db`. You can search as soon as `rfx index` returns; any file the pass hasn't reached yet — or that changed since — is parsed at query time and added to the cache.
+
+```
+Starting background symbol indexing...
+  Symbols will be cached for faster queries
+  Check status with: rfx index status
+```
+
+`rfx index status` shows the pass's progress (`State: Completed`, files processed, parsed and failed).
 
 ## Basic symbol search
 
 Add `--symbols` (or `-s`) to any query:
 
 ```bash
-rfx query "authenticate" --symbols
+rfx query "IndexConfig" --symbols
 ```
 
 ```
-src/auth/mod.rs:42  [Function] pub fn authenticate(creds: &Credentials) -> Result<Session>
-1 result in 4ms
+  src/models.rs (1 match)
+     522 [struct] IndexConfig
+        pub struct IndexConfig {
+    /// Languages to include (empty = all supported)
+    pub languages:…
+
+Found 1 result in 15ms
 ```
 
-Without `--symbols`, this query would also find calls, comments, and string literals containing "authenticate". With it, only definitions appear.
+Without `--symbols`, this query returns 282 results in the Reflex repo — every use, import, comment and doc mention of `IndexConfig`. With it, only the definition appears.
+
+Symbol names are matched as whole names by default. Add `--contains` for substring matching on symbol names, or `--exact` to require an exact name (the two can't be combined). Add `--expand` to show the full definition body instead of a preview.
 
 ## Filter by symbol kind
 
-Use `--kind` to restrict to a specific symbol type:
+Use `--kind` (or `-k`) to restrict to a specific symbol type. `--kind` implies `--symbols`, so you don't need both:
 
 ```bash
-# Only functions
-rfx query "handle" --symbols --kind function
+# Only functions (also includes methods)
+rfx query "hash_content" --kind function
 
-# Only structs
-rfx query "Config" --symbols --kind struct
+# Only structs whose name contains "Config"
+rfx query "Config" --kind struct --contains
 
-# Only interfaces (TypeScript, Go)
-rfx query "Repository" --symbols --kind interface
+# Only interfaces (TypeScript, Go, Java, …)
+rfx query "User" --kind interface
+```
+
+Searching for a language keyword lists every symbol of that kind — for example, every Rust trait:
+
+```bash
+rfx query "trait" --kind trait --lang rust
 ```
 
 ### Available symbol kinds
 
 | Kind | Description |
 |------|-------------|
-| `function` | Functions, methods |
+| `function` | Functions (`--kind function` also returns methods) |
+| `method` | Methods |
 | `class` | Classes |
-| `struct` | Structs (Rust, Go, C) |
+| `struct` | Structs |
 | `enum` | Enums |
-| `trait` | Traits (Rust) |
-| `interface` | Interfaces (TypeScript, Go, Java) |
-| `type` | Type aliases |
+| `interface` | Interfaces |
+| `trait` | Traits (Rust, PHP) |
+| `type` | Type aliases and type definitions |
 | `constant` | Constants |
 | `variable` | Variables, let bindings |
-| `method` | Methods (when distinguishable from functions) |
+| `module` | Modules (Rust, Ruby) |
+| `namespace` | Namespaces (C++, C#, PHP) |
+| `macro` | Macros (Rust, C) |
+| `property` | Properties (C#, Ruby) |
+| `event` | Events (C#) |
+| `attribute` | Attributes and annotations |
+| `import` | Imports |
+| `export` | Exports |
 
-Symbol kinds vary by language — see [Supported Languages](/reference/supported-languages/) for what each language extracts.
+`--kind` accepts all 18 kinds, but no bundled parser currently emits `import` or `export` symbols — use [dependency analysis](/guides/dependency-analysis/) to explore imports. Symbol kinds vary by language — see [Supported Languages](/reference/supported-languages/) for what each language extracts. Text, lock and generated files have no symbols.
+
+In text output each result carries a short badge: `[fn]`, `[method]`, `[struct]`, `[const]`, `[var]`, `[mod]`, and so on.
 
 ## Combine with other filters
 
@@ -81,18 +112,32 @@ Symbol search composes with all other query filters:
 # Symbols in a specific language
 rfx query "parse" --symbols --lang rust
 
-# Symbols matching a path pattern
-rfx query "Handler" --symbols --paths "src/api/"
+# Symbols in files whose path contains src/interactive/
+rfx query "InputField" --symbols --file src/interactive/
+
+# Symbols under a directory (gitignore-style glob)
+rfx query "search" --kind function --glob "src/query/**"
 
 # JSON output for tooling
-rfx query "Config" --symbols --kind struct --json
+rfx query "IndexConfig" --kind struct --json
+```
+
+In JSON, each symbol match carries `kind` (e.g. `"Struct"`), `symbol` (the name) and a `span` covering the whole definition:
+
+```json
+{
+  "kind": "Struct",
+  "symbol": "IndexConfig",
+  "span": { "start_line": 522, "end_line": 572 },
+  "preview": "pub struct IndexConfig {\n    /// Languages to include (empty = all supported)\n    pub languages:…"
+}
 ```
 
 ## Performance
 
-Symbol search adds Tree-sitter parsing to the query pipeline, but this only runs on files that pass the trigram filter. Typical overhead is 1–5ms on top of the base query time.
+Symbol search only looks at files that pass the trigram filter, and for those it normally decodes cached symbols rather than parsing. Queries like the ones above take 6–25 ms on the Reflex repository.
 
-On large codebases, symbol search is often *faster* in practice because it returns fewer results, reducing output formatting time.
+On large codebases, symbol search is often *faster* in practice because it returns fewer results, reducing output formatting time. Queries that would have to parse more than 5,000 candidate files are refused unless you pass `--force` — narrow them with `--lang`, `--file` or `--glob` instead.
 
 ## Next steps
 
