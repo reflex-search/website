@@ -23,6 +23,8 @@ src/
 ├── styles/custom.css          # Theme colors, fonts, spacing
 └── assets/logo.svg            # Header logo
 public/favicon.svg             # Favicon
+public/casts/                  # asciinema recordings embedded in pages
+scripts/casts/                 # Scripts that record the casts
 repos/reflex/                  # Source repo (git submodule, read-only)
 ```
 
@@ -40,6 +42,23 @@ npm run preview    # Preview production build
 - Sidebar is explicitly configured in `astro.config.mjs`
 - When adding a new page, add its sidebar entry in `astro.config.mjs`
 - Content is adapted from source docs in `repos/reflex/` but not dynamically imported
+- Verify facts against the rfx source code, `rfx --help`, and real output — the upstream `docs/` folder is partly stale
+
+## Recording casts
+
+Casts are recorded against an indexed checkout of the reflex repo (`REFLEX_DIR`), with asciinema (`nix shell nixpkgs#asciinema`):
+
+```bash
+# Scripted demos (94x30), one per guide
+REFLEX_DIR=... asciinema rec --headless --window-size 94x30 -f asciicast-v2 --overwrite \
+  -c "bash scripts/casts/demo-fulltext.sh" public/casts/demo-fulltext.cast
+REFLEX_DIR=... scripts/casts/record-live.sh sanitize public/casts/demo-fulltext.cast  # after recording ends
+
+# Live demos driven through tmux: query-interactive | ask-interactive | hero
+REFLEX_DIR=... scripts/casts/record-live.sh hero
+```
+
+The `hero` cast needs `.mcp.json` (rfx mcp) and `.claude/settings.local.json` (allow `mcp__reflex`) in `REFLEX_DIR`. Keep the `rows`/`cols` of each `<AsciinemaPlayer>` equal to the cast size.
 
 ## Theme
 
